@@ -9,9 +9,9 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            GroupsTab(driveStore: driveStore, configStore: configStore)
+            GeneralTab(configStore: configStore)
                 .tabItem {
-                    Label("Groups", systemImage: "folder.fill")
+                    Label("General", systemImage: "gear")
                 }
 
             DrivesTab(driveStore: driveStore, configStore: configStore)
@@ -19,9 +19,9 @@ struct SettingsView: View {
                     Label("Drives", systemImage: "externaldrive.fill")
                 }
 
-            GeneralTab(configStore: configStore)
+            GroupsTab(driveStore: driveStore, configStore: configStore)
                 .tabItem {
-                    Label("General", systemImage: "gear")
+                    Label("Groups", systemImage: "folder.fill")
                 }
         }
         .padding()
