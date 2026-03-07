@@ -83,26 +83,6 @@ struct MenuBarView: View {
         }
         .keyboardShortcut("r")
 
-        Toggle("Auto-actions on launch", isOn: Binding(
-            get: { configStore.config.autoActionsOnLaunch },
-            set: { configStore.config.autoActionsOnLaunch = $0 }
-        ))
-
-        Toggle("Auto-actions on wake", isOn: Binding(
-            get: { configStore.config.autoActionsOnWake },
-            set: { configStore.config.autoActionsOnWake = $0 }
-        ))
-
-        Toggle("Unmount all on launch", isOn: Binding(
-            get: { configStore.config.unmountAllOnLaunch },
-            set: { configStore.config.unmountAllOnLaunch = $0 }
-        ))
-
-        Toggle("Unmount all on wake", isOn: Binding(
-            get: { configStore.config.unmountAllOnWake },
-            set: { configStore.config.unmountAllOnWake = $0 }
-        ))
-
         Divider()
 
         Button("Settings…") {
