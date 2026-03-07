@@ -1,0 +1,39 @@
+# Xcode user-specific data
+xcuserdata/
+*.xcuserdatad/
+
+# Build artifacts
+DerivedData/
+build/
+*.build/
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode temporary files
+*.swp
+*~.nib
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+!default.pbxuser
+!default.mode1v3
+!default.mode2v3
+!default.perspectivev3
+
+# Code signing
+*.p12
+*.cer
+*.mobileprovision
+
+# CocoaPods / SPM
+Pods/
+.build/
+
+# Environment & secrets
+.env
+.env.*
+*.xcconfig
