@@ -101,6 +101,38 @@ final class DriveStore: ObservableObject {
         }
     }
 
+    // MARK: - Bulk Operations
+
+    func mountAll(excluding excluded: Set<String>) async {
+        let targets = managedDrives(excluding: excluded).filter { !$0.isMounted }
+        var messages: [String] = []
+        for drive in targets {
+            let result = await diskService.mount(identifier: drive.identifier)
+            let icon = result.success ? "✅" : "❌"
+            messages.append("\(icon) \(drive.volumeName)")
+        }
+        statusMessage = messages.isEmpty
+            ? "All drives already mounted"
+            : messages.joined(separator: ", ")
+        refresh()
+    }
+
+    func unmountAll(excluding excluded: Set<String>, force: Bool = false) async {
+        let targets = managedDrives(excluding: excluded).filter(\.isMounted)
+        var messages: [String] = []
+        for drive in targets {
+            let result = force
+                ? await diskService.forceUnmount(identifier: drive.identifier)
+                : await diskService.unmount(identifier: drive.identifier)
+            let icon = result.success ? "✅" : "❌"
+            messages.append("\(icon) \(drive.volumeName)")
+        }
+        statusMessage = messages.isEmpty
+            ? "All drives already unmounted"
+            : messages.joined(separator: ", ")
+        refresh()
+    }
+
     // MARK: - Group Operations
 
     func mountGroup(_ group: DriveGroup) async {

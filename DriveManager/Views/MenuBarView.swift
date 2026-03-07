@@ -39,6 +39,23 @@ struct MenuBarView: View {
             }
         }
 
+        // ── Mount / Unmount All
+        if !managed.isEmpty {
+            ControlGroup {
+                Button {
+                    Task { await driveStore.mountAll(excluding: excluded) }
+                } label: {
+                    Label("Mount All", systemImage: "play.fill")
+                }
+
+                Button {
+                    Task { await driveStore.unmountAll(excluding: excluded, force: configStore.config.useForceUnmount) }
+                } label: {
+                    Label("Unmount All", systemImage: "eject.fill")
+                }
+            }
+        }
+
         Divider()
 
         // ── Groups
