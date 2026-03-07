@@ -38,7 +38,9 @@ struct MenuBarView: View {
                 driveMenuItem(drive)
             }
         }
-
+        
+        Divider()
+        
         // ── Mount / Unmount All
         if !managed.isEmpty {
             Button {
