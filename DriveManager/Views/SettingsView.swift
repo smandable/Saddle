@@ -369,23 +369,29 @@ struct GeneralTab: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Run group actions automatically at launch",
-                       isOn: $configStore.config.autoActionsOnLaunch)
-
                 Toggle("Start DriveManager at login",
                        isOn: Binding(
                         get: { configStore.config.launchAtLogin },
                         set: { configStore.setLaunchAtLogin($0) }
                        ))
-                
-                Toggle("Force unmount (eject even if files are in use)",
-                       isOn: $configStore.config.useForceUnmount)
 
-                Text("Warning: Force unmounting can cause data loss if applications have unsaved changes on the drive.")
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                Toggle("Run group actions automatically at launch",
+                       isOn: $configStore.config.autoActionsOnLaunch)
+
+                Toggle("Unmount all drives automatically at launch",
+                       isOn: $configStore.config.unmountAllOnLaunch)
             } header: {
                 Text("Startup")
+            }
+
+            Section {
+                Toggle("Run group actions automatically on wake",
+                       isOn: $configStore.config.autoActionsOnWake)
+
+                Toggle("Unmount all drives on wake",
+                       isOn: $configStore.config.unmountAllOnWake)
+            } header: {
+                Text("Sleep / Wake")
             }
 
             Section {
@@ -415,6 +421,13 @@ struct GeneralTab: View {
             }
 
             Section {
+                Toggle("Force unmount (eject even if files are in use)",
+                       isOn: $configStore.config.useForceUnmount)
+
+                Text("Warning: Force unmounting can cause data loss if applications have unsaved changes on the drive.")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+
                 Button("Reset All Configuration", role: .destructive) {
                     configStore.config = AppConfig.default
                 }
