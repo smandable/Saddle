@@ -57,7 +57,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
             guard let self, let driveStore = self.driveStore, let configStore = self.configStore else { return }
             Task { @MainActor in
-                await driveStore.runLaunchActions(config: configStore.config)
+                await driveStore.runLaunchActions(config: configStore.config, excluding: Set(configStore.config.excludedIdentifiers))
             }
         }
 
@@ -76,7 +76,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self, let driveStore = self.driveStore, let configStore = self.configStore else { return }
             Task { @MainActor in
                 driveStore.refresh()
-                await driveStore.runWakeActions(config: configStore.config, force: configStore.config.useForceUnmount)
+                await driveStore.runWakeActions(config: configStore.config, excluding: Set(configStore.config.excludedIdentifiers), force: configStore.config.useForceUnmount)
             }
         }
     }

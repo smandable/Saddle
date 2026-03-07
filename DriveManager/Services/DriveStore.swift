@@ -167,14 +167,16 @@ final class DriveStore: ObservableObject {
 
     // MARK: - Launch Actions
 
-    func runLaunchActions(config: AppConfig) async {
+    func runLaunchActions(config: AppConfig, excluding excluded: Set<String>) async {
         guard !hasRunLaunchActions else { return }
         hasRunLaunchActions = true
+
+        let managed = managedDrives(excluding: excluded)
 
         // Global mount-all on launch (independent of group actions)
         if config.mountAllOnLaunch {
             logger.info("Mounting all drives on launch...")
-            for drive in drives.filter({ !$0.isMounted }) {
+            for drive in managed.filter({ !$0.isMounted }) {
                 let result = await diskService.mount(identifier: drive.identifier)
                 logger.info("Launch mount \(drive.volumeName): \(result.success ? "OK" : result.message)")
             }
@@ -186,7 +188,7 @@ final class DriveStore: ObservableObject {
         // Global unmount-all on launch (independent of group actions)
         if config.unmountAllOnLaunch {
             logger.info("Unmounting all drives on launch...")
-            for drive in drives.filter(\.isMounted) {
+            for drive in managed.filter(\.isMounted) {
                 let result = config.useForceUnmount
                     ? await diskService.forceUnmount(identifier: drive.identifier)
                     : await diskService.unmount(identifier: drive.identifier)
@@ -231,11 +233,13 @@ final class DriveStore: ObservableObject {
 
     // MARK: - Wake Actions
 
-    func runWakeActions(config: AppConfig, force: Bool = false) async {
+    func runWakeActions(config: AppConfig, excluding excluded: Set<String>, force: Bool = false) async {
+        let managed = managedDrives(excluding: excluded)
+
         // Global mount-all on wake (independent of group actions)
         if config.mountAllOnWake {
             logger.info("Mounting all drives on wake...")
-            for drive in drives.filter({ !$0.isMounted }) {
+            for drive in managed.filter({ !$0.isMounted }) {
                 let result = await diskService.mount(identifier: drive.identifier)
                 logger.info("Wake mount \(drive.volumeName): \(result.success ? "OK" : result.message)")
             }
@@ -247,7 +251,7 @@ final class DriveStore: ObservableObject {
         // Global unmount-all on wake (independent of group actions)
         if config.unmountAllOnWake {
             logger.info("Unmounting all drives on wake...")
-            for drive in drives.filter(\.isMounted) {
+            for drive in managed.filter(\.isMounted) {
                 let result = force
                     ? await diskService.forceUnmount(identifier: drive.identifier)
                     : await diskService.unmount(identifier: drive.identifier)
