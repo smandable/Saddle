@@ -17,6 +17,11 @@ struct DriveManagerApp: App {
         // ── Menu Bar ────────────────────────────────────────────────
         MenuBarExtra {
             MenuBarView(driveStore: driveStore, configStore: configStore, showSettings: $showSettings)
+                .onReceive(NotificationCenter.default.publisher(for: .runLaunchActions)) { _ in
+                    Task {
+                        await driveStore.runLaunchActions(config: configStore.config)
+                    }
+                }
         } label: {
             Label {
                 Text("DriveManager")

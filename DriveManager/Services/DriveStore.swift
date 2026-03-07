@@ -17,6 +17,7 @@ final class DriveStore: ObservableObject {
 
     private let diskService = DiskService.shared
     private var refreshTimer: Timer?
+    private var hasRunLaunchActions = false
 
     init() {
         // Start DiskArbitration monitoring — triggers refresh on any disk event
@@ -135,6 +136,9 @@ final class DriveStore: ObservableObject {
     // MARK: - Launch Actions
 
     func runLaunchActions(config: AppConfig) async {
+        guard !hasRunLaunchActions else { return }
+        hasRunLaunchActions = true
+
         guard config.autoActionsOnLaunch else {
             logger.info("Auto-actions disabled, skipping launch actions")
             return
