@@ -171,6 +171,18 @@ final class DriveStore: ObservableObject {
         guard !hasRunLaunchActions else { return }
         hasRunLaunchActions = true
 
+        // Global mount-all on launch (independent of group actions)
+        if config.mountAllOnLaunch {
+            logger.info("Mounting all drives on launch...")
+            for drive in drives.filter({ !$0.isMounted }) {
+                let result = await diskService.mount(identifier: drive.identifier)
+                logger.info("Launch mount \(drive.volumeName): \(result.success ? "OK" : result.message)")
+            }
+            refresh()
+            logger.info("Launch mount-all complete")
+            return
+        }
+
         // Global unmount-all on launch (independent of group actions)
         if config.unmountAllOnLaunch {
             logger.info("Unmounting all drives on launch...")
@@ -220,6 +232,18 @@ final class DriveStore: ObservableObject {
     // MARK: - Wake Actions
 
     func runWakeActions(config: AppConfig, force: Bool = false) async {
+        // Global mount-all on wake (independent of group actions)
+        if config.mountAllOnWake {
+            logger.info("Mounting all drives on wake...")
+            for drive in drives.filter({ !$0.isMounted }) {
+                let result = await diskService.mount(identifier: drive.identifier)
+                logger.info("Wake mount \(drive.volumeName): \(result.success ? "OK" : result.message)")
+            }
+            refresh()
+            logger.info("Wake mount-all complete")
+            return
+        }
+
         // Global unmount-all on wake (independent of group actions)
         if config.unmountAllOnWake {
             logger.info("Unmounting all drives on wake...")
