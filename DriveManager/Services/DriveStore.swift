@@ -202,4 +202,41 @@ final class DriveStore: ObservableObject {
         refresh()
         logger.info("Launch actions complete")
     }
+
+    // MARK: - Wake Actions
+
+    func runWakeActions(config: AppConfig, force: Bool = false) async {
+        guard config.autoActionsOnWake else {
+            logger.info("Auto-actions on wake disabled, skipping")
+            return
+        }
+
+        logger.info("Running wake actions...")
+
+        for group in config.groups {
+            switch group.action {
+            case .mount:
+                for id in group.driveIdentifiers {
+                    if let d = drive(for: id), !d.isMounted {
+                        let result = await diskService.mount(identifier: id)
+                        logger.info("Wake mount \(d.volumeName): \(result.success ? "OK" : result.message)")
+                    }
+                }
+            case .unmount:
+                for id in group.driveIdentifiers {
+                    if let d = drive(for: id), d.isMounted {
+                        let result = force
+                            ? await diskService.forceUnmount(identifier: id)
+                            : await diskService.unmount(identifier: id)
+                        logger.info("Wake unmount \(d.volumeName): \(result.success ? "OK" : result.message)")
+                    }
+                }
+            case .none:
+                break
+            }
+        }
+
+        refresh()
+        logger.info("Wake actions complete")
+    }
 }

@@ -80,6 +80,7 @@ struct DriveGroup: Identifiable, Codable, Hashable {
 struct AppConfig: Codable {
     var version: Int = 2
     var autoActionsOnLaunch: Bool = true
+    var autoActionsOnWake: Bool = false
     var refreshIntervalSeconds: Int = 15
     var groups: [DriveGroup] = []
     var excludedIdentifiers: [String] = []

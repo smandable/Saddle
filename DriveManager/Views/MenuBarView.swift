@@ -88,6 +88,11 @@ struct MenuBarView: View {
             set: { configStore.config.autoActionsOnLaunch = $0 }
         ))
 
+        Toggle("Auto-actions on wake", isOn: Binding(
+            get: { configStore.config.autoActionsOnWake },
+            set: { configStore.config.autoActionsOnWake = $0 }
+        ))
+
         Divider()
 
         Button("Settings…") {

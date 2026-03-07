@@ -60,6 +60,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 await driveStore.runLaunchActions(config: configStore.config)
             }
         }
+
+        // Re-run group actions when Mac wakes from sleep
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleWake),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleWake(_ notification: Notification) {
+        // Delay to let macOS re-enumerate and mount drives
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            guard let self, let driveStore = self.driveStore, let configStore = self.configStore else { return }
+            Task { @MainActor in
+                driveStore.refresh()
+                await driveStore.runWakeActions(config: configStore.config, force: configStore.config.useForceUnmount)
+            }
+        }
     }
 }
 
