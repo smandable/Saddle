@@ -93,6 +93,16 @@ struct MenuBarView: View {
             set: { configStore.config.autoActionsOnWake = $0 }
         ))
 
+        Toggle("Unmount all on launch", isOn: Binding(
+            get: { configStore.config.unmountAllOnLaunch },
+            set: { configStore.config.unmountAllOnLaunch = $0 }
+        ))
+
+        Toggle("Unmount all on wake", isOn: Binding(
+            get: { configStore.config.unmountAllOnWake },
+            set: { configStore.config.unmountAllOnWake = $0 }
+        ))
+
         Divider()
 
         Button("Settings…") {
