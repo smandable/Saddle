@@ -22,5 +22,3 @@ A native SwiftUI menu bar app for managing external drives on macOS. Mount, unmo
 ## Requirements
 
 - macOS 13.0 (Ventura) or later
-- Xcode 15+
-- An Apple Developer account (for signing and distribution)
