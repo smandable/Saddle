@@ -379,10 +379,22 @@ struct GeneralTab: View {
                        isOn: $configStore.config.autoActionsOnLaunch)
 
                 Toggle("Mount all drives automatically at launch",
-                       isOn: $configStore.config.mountAllOnLaunch)
+                       isOn: Binding(
+                        get: { configStore.config.mountAllOnLaunch },
+                        set: { newValue in
+                            configStore.config.mountAllOnLaunch = newValue
+                            if newValue { configStore.config.unmountAllOnLaunch = false }
+                        }
+                       ))
 
                 Toggle("Unmount all drives automatically at launch",
-                       isOn: $configStore.config.unmountAllOnLaunch)
+                       isOn: Binding(
+                        get: { configStore.config.unmountAllOnLaunch },
+                        set: { newValue in
+                            configStore.config.unmountAllOnLaunch = newValue
+                            if newValue { configStore.config.mountAllOnLaunch = false }
+                        }
+                       ))
             } header: {
                 Text("Startup")
             }
@@ -392,10 +404,22 @@ struct GeneralTab: View {
                        isOn: $configStore.config.autoActionsOnWake)
 
                 Toggle("Mount all drives on wake",
-                       isOn: $configStore.config.mountAllOnWake)
+                       isOn: Binding(
+                        get: { configStore.config.mountAllOnWake },
+                        set: { newValue in
+                            configStore.config.mountAllOnWake = newValue
+                            if newValue { configStore.config.unmountAllOnWake = false }
+                        }
+                       ))
 
                 Toggle("Unmount all drives on wake",
-                       isOn: $configStore.config.unmountAllOnWake)
+                       isOn: Binding(
+                        get: { configStore.config.unmountAllOnWake },
+                        set: { newValue in
+                            configStore.config.unmountAllOnWake = newValue
+                            if newValue { configStore.config.mountAllOnWake = false }
+                        }
+                       ))
             } header: {
                 Text("Sleep / Wake")
             }
