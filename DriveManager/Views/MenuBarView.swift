@@ -88,8 +88,11 @@ struct MenuBarView: View {
         Divider()
 
         Button("Settings…") {
-            NSApp.activate(ignoringOtherApps: true)
             openWindow(id: "settings")
+            DispatchQueue.main.async {
+                NSApp.activate(ignoringOtherApps: true)
+                NSApp.windows.first { $0.title.contains("DriveManager Settings") }?.makeKeyAndOrderFront(nil)
+            }
         }
         .keyboardShortcut(",")
 
