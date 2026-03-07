@@ -83,7 +83,9 @@ struct AppConfig: Codable {
     var version: Int = 2
     var autoActionsOnLaunch: Bool = true
     var autoActionsOnWake: Bool = false
+    var mountAllOnLaunch: Bool = false
     var unmountAllOnLaunch: Bool = false
+    var mountAllOnWake: Bool = false
     var unmountAllOnWake: Bool = false
     var refreshIntervalSeconds: Int = 15
     var groups: [DriveGroup] = []
@@ -101,7 +103,9 @@ struct AppConfig: Codable {
         version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 2
         autoActionsOnLaunch = try c.decodeIfPresent(Bool.self, forKey: .autoActionsOnLaunch) ?? true
         autoActionsOnWake = try c.decodeIfPresent(Bool.self, forKey: .autoActionsOnWake) ?? false
+        mountAllOnLaunch = try c.decodeIfPresent(Bool.self, forKey: .mountAllOnLaunch) ?? false
         unmountAllOnLaunch = try c.decodeIfPresent(Bool.self, forKey: .unmountAllOnLaunch) ?? false
+        mountAllOnWake = try c.decodeIfPresent(Bool.self, forKey: .mountAllOnWake) ?? false
         unmountAllOnWake = try c.decodeIfPresent(Bool.self, forKey: .unmountAllOnWake) ?? false
         refreshIntervalSeconds = try c.decodeIfPresent(Int.self, forKey: .refreshIntervalSeconds) ?? 15
         groups = try c.decodeIfPresent([DriveGroup].self, forKey: .groups) ?? []

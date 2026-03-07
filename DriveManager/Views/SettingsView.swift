@@ -378,6 +378,9 @@ struct GeneralTab: View {
                 Toggle("Run group actions automatically at launch",
                        isOn: $configStore.config.autoActionsOnLaunch)
 
+                Toggle("Mount all drives automatically at launch",
+                       isOn: $configStore.config.mountAllOnLaunch)
+
                 Toggle("Unmount all drives automatically at launch",
                        isOn: $configStore.config.unmountAllOnLaunch)
             } header: {
@@ -387,6 +390,9 @@ struct GeneralTab: View {
             Section {
                 Toggle("Run group actions automatically on wake",
                        isOn: $configStore.config.autoActionsOnWake)
+
+                Toggle("Mount all drives on wake",
+                       isOn: $configStore.config.mountAllOnWake)
 
                 Toggle("Unmount all drives on wake",
                        isOn: $configStore.config.unmountAllOnWake)
