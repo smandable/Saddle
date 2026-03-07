@@ -77,6 +77,8 @@ struct DriveGroup: Identifiable, Codable, Hashable {
 // MARK: - App Configuration
 
 /// The complete persisted configuration for DriveManager.
+/// Uses a custom Decodable init so that new fields with defaults
+/// can be added without breaking existing config files.
 struct AppConfig: Codable {
     var version: Int = 2
     var autoActionsOnLaunch: Bool = true
@@ -89,4 +91,19 @@ struct AppConfig: Codable {
     var useForceUnmount: Bool = false
 
     static let `default` = AppConfig()
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 2
+        autoActionsOnLaunch = try c.decodeIfPresent(Bool.self, forKey: .autoActionsOnLaunch) ?? true
+        autoActionsOnWake = try c.decodeIfPresent(Bool.self, forKey: .autoActionsOnWake) ?? false
+        refreshIntervalSeconds = try c.decodeIfPresent(Int.self, forKey: .refreshIntervalSeconds) ?? 15
+        groups = try c.decodeIfPresent([DriveGroup].self, forKey: .groups) ?? []
+        excludedIdentifiers = try c.decodeIfPresent([String].self, forKey: .excludedIdentifiers) ?? []
+        driveAliases = try c.decodeIfPresent([String: String].self, forKey: .driveAliases) ?? [:]
+        launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
+        useForceUnmount = try c.decodeIfPresent(Bool.self, forKey: .useForceUnmount) ?? false
+    }
 }
