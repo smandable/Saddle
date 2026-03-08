@@ -1,4 +1,4 @@
-# DriveManager — macOS Menu Bar Drive Manager (Swift)
+# Saddle — macOS Menu Bar Drive Manager (Swift)
 
 A native SwiftUI menu bar app for managing external drives on macOS. Mount, unmount, organize into groups, and auto-manage drives at login.
 
