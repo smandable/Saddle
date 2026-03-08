@@ -37,3 +37,4 @@ Pods/
 .env
 .env.*
 *.xcconfig
+.claude/

@@ -369,7 +369,7 @@ struct GeneralTab: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Start DriveManager at login",
+                Toggle("Start Saddle at login",
                        isOn: Binding(
                         get: { configStore.config.launchAtLogin },
                         set: { configStore.setLaunchAtLogin($0) }

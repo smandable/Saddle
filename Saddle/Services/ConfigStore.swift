@@ -3,11 +3,11 @@ import Combine
 import ServiceManagement
 import os.log
 
-private let logger = Logger(subsystem: "com.drivemanager.app", category: "ConfigStore")
+private let logger = Logger(subsystem: "com.saddle.app", category: "ConfigStore")
 
 // MARK: - Config Store
 
-/// Manages persistent configuration for DriveManager.
+/// Manages persistent configuration for Saddle.
 /// Stores data as JSON in the app's Application Support directory.
 @MainActor
 final class ConfigStore: ObservableObject {
@@ -20,7 +20,7 @@ final class ConfigStore: ObservableObject {
     init() {
         // Resolve config file path
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let configDir = appSupport.appendingPathComponent("DriveManager", isDirectory: true)
+        let configDir = appSupport.appendingPathComponent("Saddle", isDirectory: true)
 
         // Create directory if needed
         try? FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)

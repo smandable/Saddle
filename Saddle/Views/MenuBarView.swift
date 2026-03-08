@@ -91,14 +91,14 @@ struct MenuBarView: View {
             openWindow(id: "settings")
             DispatchQueue.main.async {
                 NSApp.activate(ignoringOtherApps: true)
-                NSApp.windows.first { $0.title.contains("DriveManager Settings") }?.makeKeyAndOrderFront(nil)
+                NSApp.windows.first { $0.title.contains("Saddle Settings") }?.makeKeyAndOrderFront(nil)
             }
         }
         .keyboardShortcut(",")
 
         Divider()
 
-        Button("Quit DriveManager") {
+        Button("Quit Saddle") {
             NSApplication.shared.terminate(nil)
         }
         .keyboardShortcut("q")

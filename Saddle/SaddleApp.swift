@@ -1,13 +1,13 @@
 import SwiftUI
 import ServiceManagement
 
-/// DriveManager — macOS Menu Bar App for External Drive Management
+/// Saddle — macOS Menu Bar App for External Drive Management
 ///
 /// A native SwiftUI menu bar utility that lets you monitor, mount, unmount,
 /// and organize external drives into groups with automatic launch actions.
 
 @main
-struct DriveManagerApp: App {
+struct SaddleApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var driveStore = DriveStore()
     @StateObject private var configStore = ConfigStore()
@@ -27,7 +27,7 @@ struct DriveManagerApp: App {
             MenuBarView(driveStore: driveStore, configStore: configStore, showSettings: $showSettings)
         } label: {
             Label {
-                Text("DriveManager")
+                Text("Saddle")
             } icon: {
                 Image(systemName: "externaldrive.fill")
             }
@@ -35,7 +35,7 @@ struct DriveManagerApp: App {
         .menuBarExtraStyle(.menu)
 
         // ── Settings Window ─────────────────────────────────────────
-        Window("DriveManager Settings", id: "settings") {
+        Window("Saddle Settings", id: "settings") {
             SettingsView(driveStore: driveStore, configStore: configStore)
                 .frame(minWidth: 680, minHeight: 520)
         }

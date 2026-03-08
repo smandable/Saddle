@@ -2,7 +2,7 @@ import SwiftUI
 import Combine
 import os.log
 
-private let logger = Logger(subsystem: "com.drivemanager.app", category: "DriveStore")
+private let logger = Logger(subsystem: "com.saddle.app", category: "DriveStore")
 
 // MARK: - Drive Store
 

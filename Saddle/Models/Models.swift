@@ -76,7 +76,7 @@ struct DriveGroup: Identifiable, Codable, Hashable {
 
 // MARK: - App Configuration
 
-/// The complete persisted configuration for DriveManager.
+/// The complete persisted configuration for Saddle.
 /// Uses a custom Decodable init so that new fields with defaults
 /// can be added without breaking existing config files.
 struct AppConfig: Codable {

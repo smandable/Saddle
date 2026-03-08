@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		14EC4A032F5B510700FF55EC /* DriveManager.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DriveManager.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		14EC4A032F5B510700FF55EC /* Saddle.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Saddle.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		14EC4A052F5B510700FF55EC /* DriveManager */ = {
+		14EC4A052F5B510700FF55EC /* Saddle */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = DriveManager;
+			path = Saddle;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,7 +32,7 @@
 		14EC49FA2F5B510700FF55EC = {
 			isa = PBXGroup;
 			children = (
-				14EC4A052F5B510700FF55EC /* DriveManager */,
+				14EC4A052F5B510700FF55EC /* Saddle */,
 				14EC4A042F5B510700FF55EC /* Products */,
 			);
 			sourceTree = "<group>";
@@ -40,7 +40,7 @@
 		14EC4A042F5B510700FF55EC /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				14EC4A032F5B510700FF55EC /* DriveManager.app */,
+				14EC4A032F5B510700FF55EC /* Saddle.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,9 +48,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		14EC4A022F5B510700FF55EC /* DriveManager */ = {
+		14EC4A022F5B510700FF55EC /* Saddle */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 14EC4A0E2F5B510800FF55EC /* Build configuration list for PBXNativeTarget "DriveManager" */;
+			buildConfigurationList = 14EC4A0E2F5B510800FF55EC /* Build configuration list for PBXNativeTarget "Saddle" */;
 			buildPhases = (
 				14EC49FF2F5B510700FF55EC /* Sources */,
 				14EC4A002F5B510700FF55EC /* Frameworks */,
@@ -61,13 +61,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				14EC4A052F5B510700FF55EC /* DriveManager */,
+				14EC4A052F5B510700FF55EC /* Saddle */,
 			);
-			name = DriveManager;
+			name = Saddle;
 			packageProductDependencies = (
 			);
 			productName = DriveManager;
-			productReference = 14EC4A032F5B510700FF55EC /* DriveManager.app */;
+			productReference = 14EC4A032F5B510700FF55EC /* Saddle.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -85,7 +85,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 14EC49FE2F5B510700FF55EC /* Build configuration list for PBXProject "DriveManager" */;
+			buildConfigurationList = 14EC49FE2F5B510700FF55EC /* Build configuration list for PBXProject "Saddle" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -99,7 +99,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				14EC4A022F5B510700FF55EC /* DriveManager */,
+				14EC4A022F5B510700FF55EC /* Saddle */,
 			);
 		};
 /* End PBXProject section */
@@ -258,15 +258,17 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Saddle;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-                                INFOPLIST_KEY_CFBundleDisplayName = "Drive Manager";
-                                INFOPLIST_KEY_LSUIElement = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.seanmandable.DriveManager;
+				PRODUCT_BUNDLE_IDENTIFIER = com.seanmandable.saddle;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -291,15 +293,17 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_CFBundleDisplayName = "Drive Manager";
+				INFOPLIST_KEY_CFBundleDisplayName = Saddle;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.seanmandable.DriveManager;
+				PRODUCT_BUNDLE_IDENTIFIER = com.seanmandable.saddle;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -314,7 +318,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		14EC49FE2F5B510700FF55EC /* Build configuration list for PBXProject "DriveManager" */ = {
+		14EC49FE2F5B510700FF55EC /* Build configuration list for PBXProject "Saddle" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				14EC4A0C2F5B510800FF55EC /* Debug */,
@@ -323,7 +327,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		14EC4A0E2F5B510800FF55EC /* Build configuration list for PBXNativeTarget "DriveManager" */ = {
+		14EC4A0E2F5B510800FF55EC /* Build configuration list for PBXNativeTarget "Saddle" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				14EC4A0F2F5B510800FF55EC /* Debug */,

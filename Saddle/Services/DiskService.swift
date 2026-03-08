@@ -4,7 +4,7 @@ import IOKit
 import IOKit.storage
 import os.log
 
-private let logger = Logger(subsystem: "com.drivemanager.app", category: "DiskService")
+private let logger = Logger(subsystem: "com.saddle.app", category: "DiskService")
 
 // MARK: - Disk Service
 
@@ -454,7 +454,7 @@ private class CallbackContext {
     let log: Logger
     init(onChange: @escaping () -> Void) {
         self.onChange = onChange
-        self.log = Logger(subsystem: "com.drivemanager.app", category: "DiskService")
+        self.log = Logger(subsystem: "com.saddle.app", category: "DiskService")
     }
 }
 
@@ -472,7 +472,7 @@ private class OperationContext {
         self.continuation = continuation
         self.identifier = identifier
         self.session = session
-        self.log = Logger(subsystem: "com.drivemanager.app", category: "DiskService")
+        self.log = Logger(subsystem: "com.saddle.app", category: "DiskService")
         self.force = force
     }
 }
