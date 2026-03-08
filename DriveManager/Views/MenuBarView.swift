@@ -96,10 +96,6 @@ struct MenuBarView: View {
         }
         .keyboardShortcut(",")
 
-        Button("Open Config in Finder") {
-            configStore.revealConfigInFinder()
-        }
-
         Divider()
 
         Button("Quit DriveManager") {
