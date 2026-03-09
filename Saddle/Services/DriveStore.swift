@@ -232,10 +232,12 @@ final class DriveStore: ObservableObject {
     // MARK: - Wake Actions
 
     func runWakeActions(config: AppConfig, force: Bool = false) async {
+        let excluded = Set(config.excludedIdentifiers)
+
         // Global mount-all on wake (independent of group actions)
         if config.mountAllOnWake {
             logger.info("Mounting all drives on wake...")
-            for drive in drives.filter({ !$0.isMounted }) {
+            for drive in drives.filter({ !$0.isMounted && !excluded.contains($0.identifier) }) {
                 let result = await diskService.mount(identifier: drive.identifier)
                 logger.info("Wake mount \(drive.volumeName): \(result.success ? "OK" : result.message)")
             }
@@ -247,7 +249,7 @@ final class DriveStore: ObservableObject {
         // Global unmount-all on wake (independent of group actions)
         if config.unmountAllOnWake {
             logger.info("Unmounting all drives on wake...")
-            for drive in drives.filter(\.isMounted) {
+            for drive in drives.filter({ $0.isMounted && !excluded.contains($0.identifier) }) {
                 let result = force
                     ? await diskService.forceUnmount(identifier: drive.identifier)
                     : await diskService.unmount(identifier: drive.identifier)
