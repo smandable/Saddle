@@ -214,6 +214,16 @@ final class DiskService {
             return nil
         }
 
+        // Extract volume UUID for stable identification across reboots
+        var volumeUUID: String?
+        if let uuidRef = desc[kDADiskDescriptionVolumeUUIDKey as String] {
+            let cfUUID = uuidRef as! CFUUID
+            volumeUUID = CFUUIDCreateString(kCFAllocatorDefault, cfUUID) as String?
+        }
+        if volumeUUID == nil {
+            logger.warning("No volume UUID for \(bsdName) — config references will use unstable BSD name")
+        }
+
         let isMounted = mountPointURL != nil
         let mountPoint = mountPointURL?.path
 
@@ -226,6 +236,7 @@ final class DiskService {
 
         return ExternalDrive(
             identifier: bsdName,
+            volumeUUID: volumeUUID,
             volumeName: displayName,
             sizeDescription: formatBytes(sizeBytes),
             sizeBytes: sizeBytes,

@@ -146,6 +146,34 @@ final class ConfigStore: ObservableObject {
         }
     }
 
+    // MARK: - Migration
+
+    /// Migrate config from BSD-name identifiers to stable volume UUIDs.
+    /// Called after drive discovery provides the BSD→UUID mapping.
+    func migrateToVolumeUUIDs(mapping: [String: String]) {
+        guard config.version < 3 else { return }
+
+        // Migrate excluded identifiers
+        config.excludedIdentifiers = config.excludedIdentifiers.map { mapping[$0] ?? $0 }
+
+        // Migrate drive aliases
+        var newAliases: [String: String] = [:]
+        for (key, value) in config.driveAliases {
+            newAliases[mapping[key] ?? key] = value
+        }
+        config.driveAliases = newAliases
+
+        // Migrate group drive identifiers
+        for i in config.groups.indices {
+            config.groups[i].driveIdentifiers = config.groups[i].driveIdentifiers.map {
+                mapping[$0] ?? $0
+            }
+        }
+
+        config.version = 3
+        logger.info("Migrated config to version 3 (volume UUIDs)")
+    }
+
     // MARK: - Config File Access
 
     /// Open the config directory in Finder.
