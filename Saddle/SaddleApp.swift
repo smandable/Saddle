@@ -53,10 +53,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var configStore: ConfigStore?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Run launch actions after a brief delay to let drives settle
+        // Run migration + launch actions after a brief delay to let drives settle
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
             guard let self, let driveStore = self.driveStore, let configStore = self.configStore else { return }
             Task { @MainActor in
+                // Migrate config from BSD names to stable volume UUIDs
+                let mapping = Dictionary(
+                    uniqueKeysWithValues: driveStore.drives.compactMap { drive in
+                        drive.volumeUUID.map { (drive.identifier, $0) }
+                    }
+                )
+                if !mapping.isEmpty {
+                    configStore.migrateToVolumeUUIDs(mapping: mapping)
+                }
+
                 await driveStore.runLaunchActions(config: configStore.config)
             }
         }

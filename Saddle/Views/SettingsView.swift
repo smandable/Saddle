@@ -174,10 +174,10 @@ struct GroupDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(managed) { drive in
-                        let isInGroup = group.driveIdentifiers.contains(drive.identifier)
+                        let isInGroup = group.driveIdentifiers.contains(drive.persistentId)
                         let displayName = drive.displayName(aliases: configStore.config.driveAliases)
                         let otherGroup = configStore.config.groups.first {
-                            $0.name != group.name && $0.driveIdentifiers.contains(drive.identifier)
+                            $0.name != group.name && $0.driveIdentifiers.contains(drive.persistentId)
                         }
 
                         HStack {
@@ -185,9 +185,9 @@ struct GroupDetailView: View {
                                 get: { isInGroup },
                                 set: { checked in
                                     if checked {
-                                        configStore.addDriveToGroup(drive.identifier, groupName: group.name)
+                                        configStore.addDriveToGroup(drive.persistentId, groupName: group.name)
                                     } else {
-                                        configStore.removeDriveFromGroup(drive.identifier, groupName: group.name)
+                                        configStore.removeDriveFromGroup(drive.persistentId, groupName: group.name)
                                     }
                                 }
                             )) {
@@ -316,10 +316,10 @@ struct DrivesTab: View {
                     .width(min: 100, ideal: 150)
 
                     TableColumn("Alias") { drive in
-                        let alias = configStore.config.driveAliases[drive.identifier] ?? ""
+                        let alias = configStore.config.driveAliases[drive.persistentId] ?? ""
                         TextField("alias", text: Binding(
                             get: { alias },
-                            set: { configStore.setAlias($0, for: drive.identifier) }
+                            set: { configStore.setAlias($0, for: drive.persistentId) }
                         ))
                         .textFieldStyle(.roundedBorder)
                     }
@@ -339,14 +339,14 @@ struct DrivesTab: View {
                     .width(80)
 
                     TableColumn("Excluded") { drive in
-                        let isExcluded = configStore.isExcluded(drive.identifier)
+                        let isExcluded = configStore.isExcluded(drive.persistentId)
                         Toggle("", isOn: Binding(
                             get: { isExcluded },
                             set: { excluded in
                                 if excluded {
-                                    configStore.exclude(drive.identifier)
+                                    configStore.exclude(drive.persistentId)
                                 } else {
-                                    configStore.include(drive.identifier)
+                                    configStore.include(drive.persistentId)
                                 }
                             }
                         ))

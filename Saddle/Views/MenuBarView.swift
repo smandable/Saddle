@@ -110,10 +110,10 @@ struct MenuBarView: View {
     @ViewBuilder
     private func driveMenuItem(_ drive: ExternalDrive) -> some View {
         let displayName = drive.displayName(aliases: configStore.config.driveAliases)
-        let groupName = configStore.groupForDrive(drive.identifier)?.name
+        let groupName = configStore.groupForDrive(drive.persistentId)?.name
 
         Button {
-            Task { await driveStore.toggleMount(identifier: drive.identifier, force: configStore.config.useForceUnmount) }
+            Task { await driveStore.toggleMount(persistentId: drive.persistentId, force: configStore.config.useForceUnmount) }
         } label: {
             HStack {
                 Image(systemName: drive.isMounted ? "externaldrive.fill" : "externaldrive")

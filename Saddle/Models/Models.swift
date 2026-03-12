@@ -4,8 +4,10 @@ import Foundation
 
 /// Represents a single mountable volume on an external disk.
 struct ExternalDrive: Identifiable, Hashable, Codable {
-    /// BSD identifier, e.g. "disk4s1"
+    /// BSD identifier, e.g. "disk4s1" — used for DiskArbitration operations
     let identifier: String
+    /// Volume UUID from DiskArbitration, stable across reboots/reconnections
+    let volumeUUID: String?
     /// Volume name from the filesystem
     let volumeName: String
     /// Human-readable size string
@@ -19,11 +21,15 @@ struct ExternalDrive: Identifiable, Hashable, Codable {
     /// The BSD device node, e.g. "/dev/disk4s1"
     let deviceNode: String
 
-    var id: String { identifier }
+    /// Stable identifier for config persistence. Uses volumeUUID when available,
+    /// falls back to BSD identifier for drives without a UUID.
+    var persistentId: String { volumeUUID ?? identifier }
+
+    var id: String { persistentId }
 
     /// Display name: alias if configured, otherwise volume name, otherwise identifier.
     func displayName(aliases: [String: String]) -> String {
-        if let alias = aliases[identifier], !alias.isEmpty {
+        if let alias = aliases[persistentId], !alias.isEmpty {
             return alias
         }
         return volumeName.isEmpty ? identifier : volumeName

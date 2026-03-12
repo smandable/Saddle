@@ -60,7 +60,7 @@ final class DriveStore: ObservableObject {
 
     /// Drives not in the excluded list.
     func managedDrives(excluding excluded: Set<String>) -> [ExternalDrive] {
-        drives.filter { !excluded.contains($0.identifier) }
+        drives.filter { !excluded.contains($0.persistentId) }
     }
 
     /// Count of mounted managed drives.
@@ -68,26 +68,26 @@ final class DriveStore: ObservableObject {
         managedDrives(excluding: excluded).filter(\.isMounted).count
     }
 
-    /// Look up a drive by identifier.
-    func drive(for identifier: String) -> ExternalDrive? {
-        drives.first { $0.identifier == identifier }
+    /// Look up a drive by its persistent ID (volume UUID or BSD name fallback).
+    func drive(for persistentId: String) -> ExternalDrive? {
+        drives.first { $0.persistentId == persistentId }
     }
 
     // MARK: - Single Drive Operations
 
-    func toggleMount(identifier: String, force: Bool = false) async {
-        guard let d = drive(for: identifier) else { return }
+    func toggleMount(persistentId: String, force: Bool = false) async {
+        guard let d = drive(for: persistentId) else { return }
         let result: DiskOperationResult
 
         if d.isMounted {
             result = force
-                ? await diskService.forceUnmount(identifier: identifier)
-                : await diskService.unmount(identifier: identifier)
+                ? await diskService.forceUnmount(identifier: d.identifier)
+                : await diskService.unmount(identifier: d.identifier)
             statusMessage = result.success
                 ? "Unmounted \(d.volumeName)"
                 : "Failed to unmount \(d.volumeName): \(result.message)"
         } else {
-            result = await diskService.mount(identifier: identifier)
+            result = await diskService.mount(identifier: d.identifier)
             statusMessage = result.success
                 ? "Mounted \(d.volumeName)"
                 : "Failed to mount \(d.volumeName): \(result.message)"
@@ -139,7 +139,7 @@ final class DriveStore: ObservableObject {
         var messages: [String] = []
         for id in group.driveIdentifiers {
             guard let d = drive(for: id), !d.isMounted else { continue }
-            let result = await diskService.mount(identifier: id)
+            let result = await diskService.mount(identifier: d.identifier)
             let icon = result.success ? "✅" : "❌"
             messages.append("\(icon) \(d.volumeName)")
         }
@@ -154,8 +154,8 @@ final class DriveStore: ObservableObject {
         for id in group.driveIdentifiers {
             guard let d = drive(for: id), d.isMounted else { continue }
             let result = force
-                ? await diskService.forceUnmount(identifier: id)
-                : await diskService.unmount(identifier: id)
+                ? await diskService.forceUnmount(identifier: d.identifier)
+                : await diskService.unmount(identifier: d.identifier)
             let icon = result.success ? "✅" : "❌"
             messages.append("\(icon) \(d.volumeName)")
         }
@@ -209,14 +209,14 @@ final class DriveStore: ObservableObject {
             case .mount:
                 for id in group.driveIdentifiers {
                     if let d = drive(for: id), !d.isMounted {
-                        let result = await diskService.mount(identifier: id)
+                        let result = await diskService.mount(identifier: d.identifier)
                         logger.info("Launch mount \(d.volumeName): \(result.success ? "OK" : result.message)")
                     }
                 }
             case .unmount:
                 for id in group.driveIdentifiers {
                     if let d = drive(for: id), d.isMounted {
-                        let result = await diskService.unmount(identifier: id)
+                        let result = await diskService.unmount(identifier: d.identifier)
                         logger.info("Launch unmount \(d.volumeName): \(result.success ? "OK" : result.message)")
                     }
                 }
@@ -237,7 +237,7 @@ final class DriveStore: ObservableObject {
         // Global mount-all on wake (independent of group actions)
         if config.mountAllOnWake {
             logger.info("Mounting all drives on wake...")
-            for drive in drives.filter({ !$0.isMounted && !excluded.contains($0.identifier) }) {
+            for drive in drives.filter({ !$0.isMounted && !excluded.contains($0.persistentId) }) {
                 let result = await diskService.mount(identifier: drive.identifier)
                 logger.info("Wake mount \(drive.volumeName): \(result.success ? "OK" : result.message)")
             }
@@ -249,7 +249,7 @@ final class DriveStore: ObservableObject {
         // Global unmount-all on wake (independent of group actions)
         if config.unmountAllOnWake {
             logger.info("Unmounting all drives on wake...")
-            for drive in drives.filter({ $0.isMounted && !excluded.contains($0.identifier) }) {
+            for drive in drives.filter({ $0.isMounted && !excluded.contains($0.persistentId) }) {
                 let result = force
                     ? await diskService.forceUnmount(identifier: drive.identifier)
                     : await diskService.unmount(identifier: drive.identifier)
@@ -272,7 +272,7 @@ final class DriveStore: ObservableObject {
             case .mount:
                 for id in group.driveIdentifiers {
                     if let d = drive(for: id), !d.isMounted {
-                        let result = await diskService.mount(identifier: id)
+                        let result = await diskService.mount(identifier: d.identifier)
                         logger.info("Wake mount \(d.volumeName): \(result.success ? "OK" : result.message)")
                     }
                 }
@@ -280,8 +280,8 @@ final class DriveStore: ObservableObject {
                 for id in group.driveIdentifiers {
                     if let d = drive(for: id), d.isMounted {
                         let result = force
-                            ? await diskService.forceUnmount(identifier: id)
-                            : await diskService.unmount(identifier: id)
+                            ? await diskService.forceUnmount(identifier: d.identifier)
+                            : await diskService.unmount(identifier: d.identifier)
                         logger.info("Wake unmount \(d.volumeName): \(result.success ? "OK" : result.message)")
                     }
                 }
