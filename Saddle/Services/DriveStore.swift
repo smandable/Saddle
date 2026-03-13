@@ -18,12 +18,13 @@ final class DriveStore: ObservableObject {
     private let diskService = DiskService.shared
     private var refreshTimer: Timer?
     private var hasRunLaunchActions = false
+    private var debounceTask: Task<Void, Never>?
 
     /// Persistent IDs of drives the user explicitly unmounted this session.
     /// When a drive reappears mounted (e.g. USB reconnect), it will be auto-unmounted.
     private var manuallyUnmountedIds: Set<String> = []
-    /// Guard against recursive re-unmount during refresh.
-    private var isReUnmounting = false
+    /// Drives currently scheduled for re-unmount (prevents duplicate scheduling).
+    private var pendingReUnmounts: Set<String> = []
     /// Timestamp of the last manual mount/unmount operation.
     /// Re-unmount is suppressed for a short window after manual operations
     /// to avoid racing with the unmount still being processed.
@@ -33,9 +34,7 @@ final class DriveStore: ObservableObject {
         // Start DiskArbitration monitoring — triggers refresh on any disk event
         diskService.startMonitoring { [weak self] in
             Task { @MainActor in
-                // Small debounce: disk events can fire in bursts
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
-                self?.refresh()
+                self?.debouncedRefresh()
             }
         }
 
@@ -56,6 +55,19 @@ final class DriveStore: ObservableObject {
         refreshTimer?.invalidate()
     }
 
+    // MARK: - Debounced Refresh
+
+    /// Cancels any pending debounced refresh and schedules a new one.
+    /// Collapses bursts of disk events into a single refresh.
+    private func debouncedRefresh() {
+        debounceTask?.cancel()
+        debounceTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+            guard !Task.isCancelled else { return }
+            refresh()
+        }
+    }
+
     // MARK: - Refresh
 
     func refresh() {
@@ -67,31 +79,43 @@ final class DriveStore: ObservableObject {
 
         // Re-unmount drives that the user previously unmounted but that macOS
         // auto-mounted after a USB reconnect / hub power cycle.
-        // Skip if already re-unmounting, or if a manual operation just happened
-        // (the drives may still be mid-unmount from that operation).
-        guard !isReUnmounting else { return }
+        // Each drive is handled independently to avoid one stalling the rest.
         guard Date.now.timeIntervalSince(lastManualOperationTime) > 3 else { return }
 
-        let toReUnmount = drives.filter { $0.isMounted && manuallyUnmountedIds.contains($0.persistentId) }
-        if !toReUnmount.isEmpty {
-            isReUnmounting = true
-            Task {
-                // Wait for macOS to finish its auto-mount process after USB reconnect
-                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2s
+        for drive in drives where drive.isMounted && manuallyUnmountedIds.contains(drive.persistentId) {
+            scheduleReUnmount(persistentId: drive.persistentId)
+        }
+    }
 
-                for drive in toReUnmount {
-                    // Re-check that the drive is still mounted (it may have been
-                    // handled by another path while we waited)
-                    guard self.drive(for: drive.persistentId)?.isMounted == true else { continue }
-                    logger.info("Auto re-unmounting \(drive.volumeName) (was manually unmounted)")
-                    let result = await diskService.unmount(identifier: drive.identifier)
-                    if !result.success {
-                        logger.warning("Re-unmount of \(drive.volumeName) failed: \(result.message)")
-                    }
-                }
-                isReUnmounting = false
-                refresh()
+    /// Schedule a single drive for re-unmount after a delay.
+    /// Each drive is handled independently so one slow unmount can't block the rest.
+    private func scheduleReUnmount(persistentId: String) {
+        guard !pendingReUnmounts.contains(persistentId) else { return }
+        pendingReUnmounts.insert(persistentId)
+
+        Task {
+            // Wait for macOS to finish setting up this drive after reconnect
+            try? await Task.sleep(nanoseconds: 3_000_000_000) // 3s
+
+            // Check if user changed their mind (e.g. clicked Mount All)
+            guard manuallyUnmountedIds.contains(persistentId) else {
+                pendingReUnmounts.remove(persistentId)
+                return
             }
+
+            // Discover fresh to get current BSD name without modifying self.drives
+            // (other re-unmount tasks may be running concurrently)
+            let currentDrives = diskService.discoverExternalDrives()
+            if let drive = currentDrives.first(where: { $0.persistentId == persistentId }), drive.isMounted {
+                logger.info("Auto re-unmounting \(drive.volumeName)")
+                let result = await diskService.forceUnmount(identifier: drive.identifier)
+                if !result.success {
+                    logger.warning("Re-unmount of \(drive.volumeName) failed: \(result.message)")
+                }
+            }
+
+            pendingReUnmounts.remove(persistentId)
+            refresh()
         }
     }
 
@@ -174,10 +198,6 @@ final class DriveStore: ObservableObject {
 
     func unmountAll(excluding excluded: Set<String>, force: Bool = false) async {
         lastManualOperationTime = .now
-        logger.info("unmountAll: excluded set = \(excluded)")
-        for drive in drives {
-            logger.info("  drive \(drive.volumeName): persistentId=\(drive.persistentId), excluded=\(excluded.contains(drive.persistentId))")
-        }
         let targets = managedDrives(excluding: excluded).filter(\.isMounted)
         var messages: [String] = []
         for drive in targets {
@@ -261,6 +281,11 @@ final class DriveStore: ObservableObject {
 
         // Global unmount-all on launch (independent of group actions)
         if config.unmountAllOnLaunch {
+            // Track ALL managed drives as "should stay unmounted" — including ones
+            // already unmounted from a previous session, so USB reconnect re-unmounts them
+            let managedIds = Set(drives.filter { !excluded.contains($0.persistentId) }.map(\.persistentId))
+            manuallyUnmountedIds.formUnion(managedIds)
+
             logger.info("Unmounting all drives on launch...")
             for drive in drives.filter({ $0.isMounted && !excluded.contains($0.persistentId) }) {
                 let result = config.useForceUnmount
@@ -293,6 +318,9 @@ final class DriveStore: ObservableObject {
                 for id in group.driveIdentifiers {
                     if let d = drive(for: id), d.isMounted {
                         let result = await diskService.unmount(identifier: d.identifier)
+                        if result.success {
+                            manuallyUnmountedIds.insert(d.persistentId)
+                        }
                         logger.info("Launch unmount \(d.volumeName): \(result.success ? "OK" : result.message)")
                     }
                 }
@@ -324,6 +352,10 @@ final class DriveStore: ObservableObject {
 
         // Global unmount-all on wake (independent of group actions)
         if config.unmountAllOnWake {
+            // Track ALL managed drives as "should stay unmounted"
+            let managedIds = Set(drives.filter { !excluded.contains($0.persistentId) }.map(\.persistentId))
+            manuallyUnmountedIds.formUnion(managedIds)
+
             logger.info("Unmounting all drives on wake...")
             for drive in drives.filter({ $0.isMounted && !excluded.contains($0.persistentId) }) {
                 let result = force
@@ -358,6 +390,9 @@ final class DriveStore: ObservableObject {
                         let result = force
                             ? await diskService.forceUnmount(identifier: d.identifier)
                             : await diskService.unmount(identifier: d.identifier)
+                        if result.success {
+                            manuallyUnmountedIds.insert(d.persistentId)
+                        }
                         logger.info("Wake unmount \(d.volumeName): \(result.success ? "OK" : result.message)")
                     }
                 }
