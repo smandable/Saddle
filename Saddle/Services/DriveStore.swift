@@ -174,6 +174,10 @@ final class DriveStore: ObservableObject {
 
     func unmountAll(excluding excluded: Set<String>, force: Bool = false) async {
         lastManualOperationTime = .now
+        logger.info("unmountAll: excluded set = \(excluded)")
+        for drive in drives {
+            logger.info("  drive \(drive.volumeName): persistentId=\(drive.persistentId), excluded=\(excluded.contains(drive.persistentId))")
+        }
         let targets = managedDrives(excluding: excluded).filter(\.isMounted)
         var messages: [String] = []
         for drive in targets {
@@ -241,10 +245,12 @@ final class DriveStore: ObservableObject {
         guard !hasRunLaunchActions else { return }
         hasRunLaunchActions = true
 
+        let excluded = Set(config.excludedIdentifiers)
+
         // Global mount-all on launch (independent of group actions)
         if config.mountAllOnLaunch {
             logger.info("Mounting all drives on launch...")
-            for drive in drives.filter({ !$0.isMounted }) {
+            for drive in drives.filter({ !$0.isMounted && !excluded.contains($0.persistentId) }) {
                 let result = await diskService.mount(identifier: drive.identifier)
                 logger.info("Launch mount \(drive.volumeName): \(result.success ? "OK" : result.message)")
             }
@@ -256,7 +262,7 @@ final class DriveStore: ObservableObject {
         // Global unmount-all on launch (independent of group actions)
         if config.unmountAllOnLaunch {
             logger.info("Unmounting all drives on launch...")
-            for drive in drives.filter(\.isMounted) {
+            for drive in drives.filter({ $0.isMounted && !excluded.contains($0.persistentId) }) {
                 let result = config.useForceUnmount
                     ? await diskService.forceUnmount(identifier: drive.identifier)
                     : await diskService.unmount(identifier: drive.identifier)
