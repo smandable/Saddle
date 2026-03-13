@@ -19,6 +19,12 @@ final class DriveStore: ObservableObject {
     private var refreshTimer: Timer?
     private var hasRunLaunchActions = false
 
+    /// Persistent IDs of drives the user explicitly unmounted this session.
+    /// When a drive reappears mounted (e.g. USB reconnect), it will be auto-unmounted.
+    private var manuallyUnmountedIds: Set<String> = []
+    /// Guard against recursive re-unmount during refresh.
+    private var isReUnmounting = false
+
     init() {
         // Start DiskArbitration monitoring — triggers refresh on any disk event
         diskService.startMonitoring { [weak self] in
@@ -54,6 +60,27 @@ final class DriveStore: ObservableObject {
         lastRefresh = .now
         isRefreshing = false
         logger.info("Refreshed: \(self.drives.count) external volume(s)")
+
+        // Re-unmount drives that the user previously unmounted but that macOS
+        // auto-mounted after a USB reconnect / hub power cycle.
+        guard !isReUnmounting else { return }
+        let toReUnmount = drives.filter { $0.isMounted && manuallyUnmountedIds.contains($0.persistentId) }
+        if !toReUnmount.isEmpty {
+            isReUnmounting = true
+            Task {
+                for drive in toReUnmount {
+                    logger.info("Auto re-unmounting \(drive.volumeName) (was manually unmounted)")
+                    let result = await diskService.unmount(identifier: drive.identifier)
+                    if !result.success {
+                        logger.warning("Re-unmount of \(drive.volumeName) failed: \(result.message)")
+                        // Stop tracking it so we don't keep retrying
+                        manuallyUnmountedIds.remove(drive.persistentId)
+                    }
+                }
+                isReUnmounting = false
+                refresh()
+            }
+        }
     }
 
     // MARK: - Computed Properties
@@ -75,7 +102,7 @@ final class DriveStore: ObservableObject {
 
     // MARK: - Single Drive Operations
 
-    func toggleMount(persistentId: String, force: Bool = false) async {
+    func toggleMount(persistentId: String, force: Bool = false, isExcluded: Bool = false) async {
         guard let d = drive(for: persistentId) else { return }
         let result: DiskOperationResult
 
@@ -83,11 +110,17 @@ final class DriveStore: ObservableObject {
             result = force
                 ? await diskService.forceUnmount(identifier: d.identifier)
                 : await diskService.unmount(identifier: d.identifier)
+            if result.success && !isExcluded {
+                manuallyUnmountedIds.insert(persistentId)
+            }
             statusMessage = result.success
                 ? "Unmounted \(d.volumeName)"
                 : "Failed to unmount \(d.volumeName): \(result.message)"
         } else {
             result = await diskService.mount(identifier: d.identifier)
+            if result.success {
+                manuallyUnmountedIds.remove(persistentId)
+            }
             statusMessage = result.success
                 ? "Mounted \(d.volumeName)"
                 : "Failed to mount \(d.volumeName): \(result.message)"
@@ -104,6 +137,10 @@ final class DriveStore: ObservableObject {
     // MARK: - Bulk Operations
 
     func mountAll(excluding excluded: Set<String>) async {
+        // Clear re-unmount tracking for all managed drives — user wants everything mounted
+        let managedIds = Set(managedDrives(excluding: excluded).map(\.persistentId))
+        manuallyUnmountedIds.subtract(managedIds)
+
         let targets = managedDrives(excluding: excluded).filter { !$0.isMounted }
         var messages: [String] = []
         for drive in targets {
@@ -124,6 +161,9 @@ final class DriveStore: ObservableObject {
             let result = force
                 ? await diskService.forceUnmount(identifier: drive.identifier)
                 : await diskService.unmount(identifier: drive.identifier)
+            if result.success {
+                manuallyUnmountedIds.insert(drive.persistentId)
+            }
             let icon = result.success ? "✅" : "❌"
             messages.append("\(icon) \(drive.volumeName)")
         }
@@ -136,6 +176,9 @@ final class DriveStore: ObservableObject {
     // MARK: - Group Operations
 
     func mountGroup(_ group: DriveGroup) async {
+        // Clear re-unmount tracking for all drives in this group
+        manuallyUnmountedIds.subtract(group.driveIdentifiers)
+
         var messages: [String] = []
         for id in group.driveIdentifiers {
             guard let d = drive(for: id), !d.isMounted else { continue }
@@ -156,6 +199,9 @@ final class DriveStore: ObservableObject {
             let result = force
                 ? await diskService.forceUnmount(identifier: d.identifier)
                 : await diskService.unmount(identifier: d.identifier)
+            if result.success {
+                manuallyUnmountedIds.insert(d.persistentId)
+            }
             let icon = result.success ? "✅" : "❌"
             messages.append("\(icon) \(d.volumeName)")
         }
