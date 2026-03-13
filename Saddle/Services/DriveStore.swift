@@ -24,6 +24,10 @@ final class DriveStore: ObservableObject {
     private var manuallyUnmountedIds: Set<String> = []
     /// Guard against recursive re-unmount during refresh.
     private var isReUnmounting = false
+    /// Timestamp of the last manual mount/unmount operation.
+    /// Re-unmount is suppressed for a short window after manual operations
+    /// to avoid racing with the unmount still being processed.
+    private var lastManualOperationTime: Date = .distantPast
 
     init() {
         // Start DiskArbitration monitoring — triggers refresh on any disk event
@@ -63,23 +67,38 @@ final class DriveStore: ObservableObject {
 
         // Re-unmount drives that the user previously unmounted but that macOS
         // auto-mounted after a USB reconnect / hub power cycle.
+        // Skip if already re-unmounting, or if a manual operation just happened
+        // (the drives may still be mid-unmount from that operation).
         guard !isReUnmounting else { return }
+        guard Date.now.timeIntervalSince(lastManualOperationTime) > 3 else { return }
+
         let toReUnmount = drives.filter { $0.isMounted && manuallyUnmountedIds.contains($0.persistentId) }
         if !toReUnmount.isEmpty {
             isReUnmounting = true
             Task {
+                // Wait for macOS to finish its auto-mount process after USB reconnect
+                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2s
+
                 for drive in toReUnmount {
+                    // Re-check that the drive is still mounted (it may have been
+                    // handled by another path while we waited)
+                    guard self.drive(for: drive.persistentId)?.isMounted == true else { continue }
                     logger.info("Auto re-unmounting \(drive.volumeName) (was manually unmounted)")
                     let result = await diskService.unmount(identifier: drive.identifier)
                     if !result.success {
                         logger.warning("Re-unmount of \(drive.volumeName) failed: \(result.message)")
-                        // Stop tracking it so we don't keep retrying
-                        manuallyUnmountedIds.remove(drive.persistentId)
                     }
                 }
                 isReUnmounting = false
                 refresh()
             }
+        }
+    }
+
+    private func clearStatusAfterDelay() {
+        Task {
+            try? await Task.sleep(nanoseconds: 4_000_000_000) // 4s
+            if statusMessage != nil { statusMessage = nil }
         }
     }
 
@@ -103,6 +122,7 @@ final class DriveStore: ObservableObject {
     // MARK: - Single Drive Operations
 
     func toggleMount(persistentId: String, force: Bool = false, isExcluded: Bool = false) async {
+        lastManualOperationTime = .now
         guard let d = drive(for: persistentId) else { return }
         let result: DiskOperationResult
 
@@ -127,16 +147,13 @@ final class DriveStore: ObservableObject {
         }
 
         refresh()
-
-        Task {
-            try? await Task.sleep(nanoseconds: 4_000_000_000)
-            if statusMessage != nil { statusMessage = nil }
-        }
+        clearStatusAfterDelay()
     }
 
     // MARK: - Bulk Operations
 
     func mountAll(excluding excluded: Set<String>) async {
+        lastManualOperationTime = .now
         // Clear re-unmount tracking for all managed drives — user wants everything mounted
         let managedIds = Set(managedDrives(excluding: excluded).map(\.persistentId))
         manuallyUnmountedIds.subtract(managedIds)
@@ -152,9 +169,11 @@ final class DriveStore: ObservableObject {
             ? "All drives already mounted"
             : messages.joined(separator: ", ")
         refresh()
+        clearStatusAfterDelay()
     }
 
     func unmountAll(excluding excluded: Set<String>, force: Bool = false) async {
+        lastManualOperationTime = .now
         let targets = managedDrives(excluding: excluded).filter(\.isMounted)
         var messages: [String] = []
         for drive in targets {
@@ -171,11 +190,13 @@ final class DriveStore: ObservableObject {
             ? "All drives already unmounted"
             : messages.joined(separator: ", ")
         refresh()
+        clearStatusAfterDelay()
     }
 
     // MARK: - Group Operations
 
     func mountGroup(_ group: DriveGroup) async {
+        lastManualOperationTime = .now
         // Clear re-unmount tracking for all drives in this group
         manuallyUnmountedIds.subtract(group.driveIdentifiers)
 
@@ -190,9 +211,11 @@ final class DriveStore: ObservableObject {
             ? "All drives in \(group.name) already mounted"
             : messages.joined(separator: ", ")
         refresh()
+        clearStatusAfterDelay()
     }
 
     func unmountGroup(_ group: DriveGroup, force: Bool = false) async {
+        lastManualOperationTime = .now
         var messages: [String] = []
         for id in group.driveIdentifiers {
             guard let d = drive(for: id), d.isMounted else { continue }
@@ -209,6 +232,7 @@ final class DriveStore: ObservableObject {
             ? "All drives in \(group.name) already unmounted"
             : messages.joined(separator: ", ")
         refresh()
+        clearStatusAfterDelay()
     }
 
     // MARK: - Launch Actions
