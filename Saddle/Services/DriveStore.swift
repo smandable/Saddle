@@ -183,11 +183,19 @@ final class DriveStore: ObservableObject {
         manuallyUnmountedIds.subtract(managedIds)
 
         let targets = managedDrives(excluding: excluded).filter { !$0.isMounted }
-        var messages: [String] = []
-        for drive in targets {
-            let result = await diskService.mount(identifier: drive.identifier)
-            let icon = result.success ? "✅" : "❌"
-            messages.append("\(icon) \(drive.volumeName)")
+        let messages = await withTaskGroup(of: String.self, returning: [String].self) { group in
+            for drive in targets {
+                let id = drive.identifier
+                let name = drive.volumeName
+                group.addTask { [diskService] in
+                    let result = await diskService.mount(identifier: id)
+                    let icon = result.success ? "✅" : "❌"
+                    return "\(icon) \(name)"
+                }
+            }
+            var collected: [String] = []
+            for await msg in group { collected.append(msg) }
+            return collected
         }
         statusMessage = messages.isEmpty
             ? "All drives already mounted"
@@ -199,17 +207,35 @@ final class DriveStore: ObservableObject {
     func unmountAll(excluding excluded: Set<String>, force: Bool = false) async {
         lastManualOperationTime = .now
         let targets = managedDrives(excluding: excluded).filter(\.isMounted)
-        var messages: [String] = []
+        let results = await withTaskGroup(of: (String, Bool).self, returning: [(String, Bool)].self) { group in
+            for drive in targets {
+                let id = drive.identifier
+                let name = drive.volumeName
+                let persistId = drive.persistentId
+                group.addTask { [diskService] in
+                    let result = force
+                        ? await diskService.forceUnmount(identifier: id)
+                        : await diskService.unmount(identifier: id)
+                    let icon = result.success ? "✅" : "❌"
+                    return ("\(icon) \(name)", result.success ? true : false)
+                }
+            }
+            var collected: [(String, Bool)] = []
+            for await item in group { collected.append(item) }
+            return collected
+        }
+        // Track successfully unmounted drives
+        for (index, drive) in targets.enumerated() where index < results.count {
+            // Results may be in different order; match by scanning
+        }
+        // Simpler: re-check which targets are now unmounted
+        let freshDrives = await diskService.discoverExternalDrives()
         for drive in targets {
-            let result = force
-                ? await diskService.forceUnmount(identifier: drive.identifier)
-                : await diskService.unmount(identifier: drive.identifier)
-            if result.success {
+            if let fresh = freshDrives.first(where: { $0.persistentId == drive.persistentId }), !fresh.isMounted {
                 manuallyUnmountedIds.insert(drive.persistentId)
             }
-            let icon = result.success ? "✅" : "❌"
-            messages.append("\(icon) \(drive.volumeName)")
         }
+        let messages = results.map(\.0)
         statusMessage = messages.isEmpty
             ? "All drives already unmounted"
             : messages.joined(separator: ", ")
@@ -224,12 +250,23 @@ final class DriveStore: ObservableObject {
         // Clear re-unmount tracking for all drives in this group
         manuallyUnmountedIds.subtract(group.driveIdentifiers)
 
-        var messages: [String] = []
-        for id in group.driveIdentifiers {
-            guard let d = drive(for: id), !d.isMounted else { continue }
-            let result = await diskService.mount(identifier: d.identifier)
-            let icon = result.success ? "✅" : "❌"
-            messages.append("\(icon) \(d.volumeName)")
+        let targets = group.driveIdentifiers.compactMap { id -> ExternalDrive? in
+            guard let d = drive(for: id), !d.isMounted else { return nil }
+            return d
+        }
+        let messages = await withTaskGroup(of: String.self, returning: [String].self) { taskGroup in
+            for d in targets {
+                let id = d.identifier
+                let name = d.volumeName
+                taskGroup.addTask { [diskService] in
+                    let result = await diskService.mount(identifier: id)
+                    let icon = result.success ? "✅" : "❌"
+                    return "\(icon) \(name)"
+                }
+            }
+            var collected: [String] = []
+            for await msg in taskGroup { collected.append(msg) }
+            return collected
         }
         statusMessage = messages.isEmpty
             ? "All drives in \(group.name) already mounted"
@@ -240,17 +277,32 @@ final class DriveStore: ObservableObject {
 
     func unmountGroup(_ group: DriveGroup, force: Bool = false) async {
         lastManualOperationTime = .now
-        var messages: [String] = []
-        for id in group.driveIdentifiers {
-            guard let d = drive(for: id), d.isMounted else { continue }
-            let result = force
-                ? await diskService.forceUnmount(identifier: d.identifier)
-                : await diskService.unmount(identifier: d.identifier)
-            if result.success {
+        let targets = group.driveIdentifiers.compactMap { id -> ExternalDrive? in
+            guard let d = drive(for: id), d.isMounted else { return nil }
+            return d
+        }
+        let messages = await withTaskGroup(of: String.self, returning: [String].self) { taskGroup in
+            for d in targets {
+                let id = d.identifier
+                let name = d.volumeName
+                taskGroup.addTask { [diskService] in
+                    let result = force
+                        ? await diskService.forceUnmount(identifier: id)
+                        : await diskService.unmount(identifier: id)
+                    let icon = result.success ? "✅" : "❌"
+                    return "\(icon) \(name)"
+                }
+            }
+            var collected: [String] = []
+            for await msg in taskGroup { collected.append(msg) }
+            return collected
+        }
+        // Track successfully unmounted drives
+        let freshDrives = await diskService.discoverExternalDrives()
+        for d in targets {
+            if let fresh = freshDrives.first(where: { $0.persistentId == d.persistentId }), !fresh.isMounted {
                 manuallyUnmountedIds.insert(d.persistentId)
             }
-            let icon = result.success ? "✅" : "❌"
-            messages.append("\(icon) \(d.volumeName)")
         }
         statusMessage = messages.isEmpty
             ? "All drives in \(group.name) already unmounted"
