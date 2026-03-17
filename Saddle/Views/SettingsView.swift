@@ -94,7 +94,8 @@ struct GroupsTab: View {
                 GroupDetailView(
                     group: group,
                     driveStore: driveStore,
-                    configStore: configStore
+                    configStore: configStore,
+                    selectedGroup: $selectedGroup
                 )
             } else {
                 VStack {
@@ -128,6 +129,9 @@ struct GroupDetailView: View {
     let group: DriveGroup
     @ObservedObject var driveStore: DriveStore
     @ObservedObject var configStore: ConfigStore
+    @Binding var selectedGroup: String?
+    @State private var isEditingName = false
+    @State private var editedName = ""
 
     private var managed: [ExternalDrive] {
         driveStore.managedDrives(excluding: configStore.excludedSet)
@@ -137,8 +141,26 @@ struct GroupDetailView: View {
         VStack(alignment: .leading, spacing: 16) {
             // ── Group Name & Action
             HStack {
-                Text(group.name)
-                    .font(.title2.bold())
+                if isEditingName {
+                    TextField("Group name", text: $editedName, onCommit: commitRename)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.title2.bold())
+                        .frame(maxWidth: 200)
+                    Button("Cancel") {
+                        isEditingName = false
+                    }
+                    .buttonStyle(.borderless)
+                } else {
+                    Text(group.name)
+                        .font(.title2.bold())
+                    Button {
+                        editedName = group.name
+                        isEditingName = true
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .buttonStyle(.borderless)
+                }
                 Spacer()
             }
 
@@ -223,6 +245,20 @@ struct GroupDetailView: View {
             Spacer()
         }
         .padding()
+    }
+
+    private func commitRename() {
+        let trimmed = editedName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty,
+              trimmed != group.name,
+              !configStore.config.groups.contains(where: { $0.name == trimmed })
+        else {
+            isEditingName = false
+            return
+        }
+        configStore.renameGroup(from: group.name, to: trimmed)
+        selectedGroup = trimmed
+        isEditingName = false
     }
 }
 

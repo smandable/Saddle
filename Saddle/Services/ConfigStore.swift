@@ -112,6 +112,12 @@ final class ConfigStore: ObservableObject {
         }
     }
 
+    func renameGroup(from oldName: String, to newName: String) {
+        if let idx = config.groups.firstIndex(where: { $0.name == oldName }) {
+            config.groups[idx].name = newName
+        }
+    }
+
     func addDriveToGroup(_ driveId: String, groupName: String) {
         // Remove from any existing group first
         for i in config.groups.indices {
