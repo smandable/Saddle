@@ -211,7 +211,6 @@ final class DriveStore: ObservableObject {
             for drive in targets {
                 let id = drive.identifier
                 let name = drive.volumeName
-                let persistId = drive.persistentId
                 group.addTask { [diskService] in
                     let result = force
                         ? await diskService.forceUnmount(identifier: id)
@@ -224,11 +223,7 @@ final class DriveStore: ObservableObject {
             for await item in group { collected.append(item) }
             return collected
         }
-        // Track successfully unmounted drives
-        for (index, drive) in targets.enumerated() where index < results.count {
-            // Results may be in different order; match by scanning
-        }
-        // Simpler: re-check which targets are now unmounted
+        // Re-check which targets are now unmounted
         let freshDrives = await diskService.discoverExternalDrives()
         for drive in targets {
             if let fresh = freshDrives.first(where: { $0.persistentId == drive.persistentId }), !fresh.isMounted {
