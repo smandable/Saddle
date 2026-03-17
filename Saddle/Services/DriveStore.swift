@@ -31,7 +31,7 @@ final class DriveStore: ObservableObject {
     private var lastManualOperationTime: Date = .distantPast
 
     init() {
-        // Start DiskArbitration monitoring — triggers refresh on any disk event
+        // Start DiskArbitration monitoring via XPC helper — triggers refresh on any disk event
         diskService.startMonitoring { [weak self] in
             Task { @MainActor in
                 self?.debouncedRefresh()
@@ -39,14 +39,14 @@ final class DriveStore: ObservableObject {
         }
 
         // Initial scan
-        refresh()
+        Task { await refresh() }
 
         // Periodic refresh as a safety net
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             guard let self else { return }
             let store = self
             Task { @MainActor in
-                store.refresh()
+                await store.refresh()
             }
         }
     }
@@ -64,15 +64,15 @@ final class DriveStore: ObservableObject {
         debounceTask = Task {
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
             guard !Task.isCancelled else { return }
-            refresh()
+            await refresh()
         }
     }
 
     // MARK: - Refresh
 
-    func refresh() {
+    func refresh() async {
         isRefreshing = true
-        drives = diskService.discoverExternalDrives()
+        drives = await diskService.discoverExternalDrives()
         lastRefresh = .now
         isRefreshing = false
         logger.info("Refreshed: \(self.drives.count) external volume(s)")
@@ -105,7 +105,7 @@ final class DriveStore: ObservableObject {
 
             // Discover fresh to get current BSD name without modifying self.drives
             // (other re-unmount tasks may be running concurrently)
-            let currentDrives = diskService.discoverExternalDrives()
+            let currentDrives = await diskService.discoverExternalDrives()
             if let drive = currentDrives.first(where: { $0.persistentId == persistentId }), drive.isMounted {
                 logger.info("Auto re-unmounting \(drive.volumeName)")
                 let result = await diskService.forceUnmount(identifier: drive.identifier)
@@ -115,7 +115,7 @@ final class DriveStore: ObservableObject {
             }
 
             pendingReUnmounts.remove(persistentId)
-            refresh()
+            await refresh()
         }
     }
 
@@ -170,7 +170,7 @@ final class DriveStore: ObservableObject {
                 : "Failed to mount \(d.volumeName): \(result.message)"
         }
 
-        refresh()
+        await refresh()
         clearStatusAfterDelay()
     }
 
@@ -192,7 +192,7 @@ final class DriveStore: ObservableObject {
         statusMessage = messages.isEmpty
             ? "All drives already mounted"
             : messages.joined(separator: ", ")
-        refresh()
+        await refresh()
         clearStatusAfterDelay()
     }
 
@@ -213,7 +213,7 @@ final class DriveStore: ObservableObject {
         statusMessage = messages.isEmpty
             ? "All drives already unmounted"
             : messages.joined(separator: ", ")
-        refresh()
+        await refresh()
         clearStatusAfterDelay()
     }
 
@@ -234,7 +234,7 @@ final class DriveStore: ObservableObject {
         statusMessage = messages.isEmpty
             ? "All drives in \(group.name) already mounted"
             : messages.joined(separator: ", ")
-        refresh()
+        await refresh()
         clearStatusAfterDelay()
     }
 
@@ -255,7 +255,7 @@ final class DriveStore: ObservableObject {
         statusMessage = messages.isEmpty
             ? "All drives in \(group.name) already unmounted"
             : messages.joined(separator: ", ")
-        refresh()
+        await refresh()
         clearStatusAfterDelay()
     }
 
@@ -274,7 +274,7 @@ final class DriveStore: ObservableObject {
                 let result = await diskService.mount(identifier: drive.identifier)
                 logger.info("Launch mount \(drive.volumeName): \(result.success ? "OK" : result.message)")
             }
-            refresh()
+            await refresh()
             logger.info("Launch mount-all complete")
             return
         }
@@ -293,7 +293,7 @@ final class DriveStore: ObservableObject {
                     : await diskService.unmount(identifier: drive.identifier)
                 logger.info("Launch unmount \(drive.volumeName): \(result.success ? "OK" : result.message)")
             }
-            refresh()
+            await refresh()
             logger.info("Launch unmount-all complete")
             return
         }
@@ -329,7 +329,7 @@ final class DriveStore: ObservableObject {
             }
         }
 
-        refresh()
+        await refresh()
         logger.info("Launch actions complete")
     }
 
@@ -345,7 +345,7 @@ final class DriveStore: ObservableObject {
                 let result = await diskService.mount(identifier: drive.identifier)
                 logger.info("Wake mount \(drive.volumeName): \(result.success ? "OK" : result.message)")
             }
-            refresh()
+            await refresh()
             logger.info("Wake mount-all complete")
             return
         }
@@ -363,7 +363,7 @@ final class DriveStore: ObservableObject {
                     : await diskService.unmount(identifier: drive.identifier)
                 logger.info("Wake unmount \(drive.volumeName): \(result.success ? "OK" : result.message)")
             }
-            refresh()
+            await refresh()
             logger.info("Wake unmount-all complete")
             return
         }
@@ -401,7 +401,7 @@ final class DriveStore: ObservableObject {
             }
         }
 
-        refresh()
+        await refresh()
         logger.info("Wake actions complete")
     }
 }
