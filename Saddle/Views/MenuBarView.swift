@@ -81,7 +81,7 @@ struct MenuBarView: View {
 
         // ── Utility Items
         Button("Refresh") {
-            driveStore.refresh()
+            Task { await driveStore.refresh() }
         }
         .keyboardShortcut("r")
 

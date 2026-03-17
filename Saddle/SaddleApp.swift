@@ -1,5 +1,8 @@
 import SwiftUI
 import ServiceManagement
+import os.log
+
+private let logger = Logger(subsystem: "com.saddle.app", category: "App")
 
 /// Saddle — macOS Menu Bar App for External Drive Management
 ///
@@ -53,6 +56,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var configStore: ConfigStore?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Register the privileged helper daemon so launchd can start it on demand
+        registerHelperDaemon()
+
         // Run migration + launch actions after a brief delay to let drives settle
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
             guard let self, let driveStore = self.driveStore, let configStore = self.configStore else { return }
@@ -80,12 +86,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
+    private func registerHelperDaemon() {
+        let daemon = SMAppService.daemon(plistName: "com.saddle.helper.plist")
+        if daemon.status != .enabled {
+            do {
+                try daemon.register()
+                logger.info("Helper daemon registered successfully")
+            } catch {
+                logger.error("Failed to register helper daemon: \(error.localizedDescription)")
+            }
+        } else {
+            logger.info("Helper daemon already registered")
+        }
+    }
+
     @objc private func handleWake(_ notification: Notification) {
         // Delay to let macOS re-enumerate and mount drives
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
             guard let self, let driveStore = self.driveStore, let configStore = self.configStore else { return }
             Task { @MainActor in
-                driveStore.refresh()
+                await driveStore.refresh()
                 await driveStore.runWakeActions(config: configStore.config, force: configStore.config.useForceUnmount)
             }
         }

@@ -278,7 +278,7 @@ struct DrivesTab: View {
                     .font(.title2.bold())
                 Spacer()
                 Button {
-                    driveStore.refresh()
+                    Task { await driveStore.refresh() }
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
