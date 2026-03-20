@@ -20,6 +20,12 @@ final class DiskService {
     /// Callback invoked when the helper reports a disk event.
     private var onChange: (() -> Void)?
 
+    /// Tracks consecutive XPC failures so callers can show connection state.
+    private(set) var consecutiveFailures: Int = 0
+
+    /// The last XPC error message, if any.
+    private(set) var lastError: String?
+
     private init() {}
 
 
@@ -72,19 +78,26 @@ final class DiskService {
     // MARK: - Drive Discovery
 
     /// Discover all external, user-visible volumes via the helper daemon.
-    func discoverExternalDrives() async -> [ExternalDrive] {
+    /// Returns `nil` when the XPC connection fails (as opposed to an empty
+    /// array which means the helper responded but found no drives).
+    func discoverExternalDrives() async -> [ExternalDrive]? {
         await withCheckedContinuation { continuation in
             let connection = createXPCConnection()
             connection.resume()
 
-            let proxy = connection.remoteObjectProxyWithErrorHandler { error in
-                logger.error("Discovery XPC error: \(error.localizedDescription)")
-                continuation.resume(returning: [])
+            let proxy = connection.remoteObjectProxyWithErrorHandler { [weak self] error in
+                let msg = error.localizedDescription
+                logger.error("Discovery XPC error: \(msg)")
+                self?.consecutiveFailures += 1
+                self?.lastError = msg
+                continuation.resume(returning: nil)
                 connection.invalidate()
             } as! SaddleXPCProtocol
 
-            proxy.discoverExternalDrives { dicts in
+            proxy.discoverExternalDrives { [weak self] dicts in
                 let drives = dicts.compactMap { ExternalDrive(fromXPCDictionary: $0) }
+                self?.consecutiveFailures = 0
+                self?.lastError = nil
                 continuation.resume(returning: drives)
                 connection.invalidate()
             }
@@ -167,7 +180,13 @@ final class DiskService {
     // MARK: - XPC Connection
 
     private func createXPCConnection() -> NSXPCConnection {
+        #if DEBUG
+        // In debug builds the helper runs as a user agent (gui domain),
+        // not a system daemon, so we must NOT use .privileged.
+        let connection = NSXPCConnection(machServiceName: "com.saddle.helper", options: [])
+        #else
         let connection = NSXPCConnection(machServiceName: "com.saddle.helper", options: .privileged)
+        #endif
         connection.remoteObjectInterface = NSXPCInterface(with: SaddleXPCProtocol.self)
         return connection
     }

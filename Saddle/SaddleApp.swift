@@ -86,9 +86,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
-    private func registerHelperDaemon() {
+    func registerHelperDaemon() {
+        #if DEBUG
+        // In debug builds the helper runs as a user agent (not a system
+        // daemon) to avoid SMAppService/BTM issues during development.
+        // Load it via launchctl if not already running.
+        loadHelperAgent()
+        #else
         let daemon = SMAppService.daemon(plistName: "com.saddle.helper.plist")
-        if daemon.status != .enabled {
+        let status = daemon.status
+        logger.info("Helper daemon status: \(String(describing: status))")
+
+        if status != .enabled {
             do {
                 try daemon.register()
                 logger.info("Helper daemon registered successfully")
@@ -98,11 +107,74 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             logger.info("Helper daemon already registered")
         }
+        #endif
     }
 
+    #if DEBUG
+    private func loadHelperAgent() {
+        // Check if the agent is already registered — if so, don't bounce it
+        // (the build script may have already loaded it).
+        let uid = getuid()
+        let domain = "gui/\(uid)"
+
+        let check = Process()
+        check.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        check.arguments = ["print", "\(domain)/com.saddle.helper"]
+        check.standardOutput = FileHandle.nullDevice
+        check.standardError = FileHandle.nullDevice
+        try? check.run()
+        check.waitUntilExit()
+
+        if check.terminationStatus == 0 {
+            logger.info("Helper agent already loaded, skipping bootstrap")
+            return
+        }
+
+        let helperPath = Bundle.main.executableURL!
+            .deletingLastPathComponent()
+            .appendingPathComponent("SaddleHelper")
+            .path
+
+        let plistContent = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+              "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>Label</key>
+                <string>com.saddle.helper</string>
+                <key>Program</key>
+                <string>\(helperPath)</string>
+                <key>MachServices</key>
+                <dict>
+                    <key>com.saddle.helper</key>
+                    <true/>
+                </dict>
+            </dict>
+            </plist>
+            """
+
+        let plistPath = "/tmp/com.saddle.helper.plist"
+        try? plistContent.write(toFile: plistPath, atomically: true, encoding: .utf8)
+
+        let bootstrap = Process()
+        bootstrap.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        bootstrap.arguments = ["bootstrap", domain, plistPath]
+        try? bootstrap.run()
+        bootstrap.waitUntilExit()
+
+        if bootstrap.terminationStatus == 0 {
+            logger.info("Helper agent loaded: \(helperPath)")
+        } else {
+            logger.error("Failed to load helper agent (exit \(bootstrap.terminationStatus))")
+        }
+    }
+    #endif
+
     @objc private func handleWake(_ notification: Notification) {
-        // Delay to let macOS re-enumerate and mount drives
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+        // Delay to let macOS re-enumerate and mount drives.
+        // 5s initial wait — drives on USB hubs can take a few seconds to spin up.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
             guard let self, let driveStore = self.driveStore, let configStore = self.configStore else { return }
             Task { @MainActor in
                 await driveStore.refresh()

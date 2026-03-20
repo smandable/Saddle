@@ -29,9 +29,22 @@ struct MenuBarView: View {
             Divider()
         }
 
+        // ── Helper connection error
+        if !driveStore.helperConnected {
+            Label("Helper not responding", systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
+            Button("Reconnect Helper") {
+                Task { await driveStore.retryHelperConnection() }
+            }
+            Divider()
+        }
+
         // ── Individual Drives
-        if managed.isEmpty {
+        if managed.isEmpty && driveStore.helperConnected {
             Text("No external drives detected")
+                .foregroundStyle(.secondary)
+        } else if managed.isEmpty {
+            Text("No drives (helper disconnected)")
                 .foregroundStyle(.secondary)
         } else {
             ForEach(managed) { drive in
