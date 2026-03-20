@@ -14,6 +14,7 @@ final class DriveStore: ObservableObject {
     @Published var lastRefresh: Date = .now
     @Published var isRefreshing: Bool = false
     @Published var statusMessage: String?
+    @Published var helperConnected: Bool = true
 
     private let diskService = DiskService.shared
     private var refreshTimer: Timer?
@@ -60,9 +61,13 @@ final class DriveStore: ObservableObject {
     /// Cancels any pending debounced refresh and schedules a new one.
     /// Collapses bursts of disk events into a single refresh.
     private func debouncedRefresh() {
+        // Skip if a refresh just completed — avoids cascade after wake/bulk ops
+        guard Date.now.timeIntervalSince(lastRefresh) > 1.0 || drives.isEmpty else {
+            return
+        }
         debounceTask?.cancel()
         debounceTask = Task {
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1s
             guard !Task.isCancelled else { return }
             await refresh()
         }
@@ -72,10 +77,17 @@ final class DriveStore: ObservableObject {
 
     func refresh() async {
         isRefreshing = true
-        drives = await diskService.discoverExternalDrives()
+        if let discovered = await diskService.discoverExternalDrives() {
+            drives = discovered
+            helperConnected = true
+        } else {
+            // XPC failed — keep existing drive list but mark disconnected
+            helperConnected = false
+            logger.warning("Helper not responding (failures: \(self.diskService.consecutiveFailures))")
+        }
         lastRefresh = .now
         isRefreshing = false
-        logger.info("Refreshed: \(self.drives.count) external volume(s)")
+        logger.info("Refreshed: \(self.drives.count) external volume(s), helper connected: \(self.helperConnected)")
 
         // Re-unmount drives that the user previously unmounted but that macOS
         // auto-mounted after a USB reconnect / hub power cycle.
@@ -105,7 +117,7 @@ final class DriveStore: ObservableObject {
 
             // Discover fresh to get current BSD name without modifying self.drives
             // (other re-unmount tasks may be running concurrently)
-            let currentDrives = await diskService.discoverExternalDrives()
+            let currentDrives = await diskService.discoverExternalDrives() ?? []
             if let drive = currentDrives.first(where: { $0.persistentId == persistentId }), drive.isMounted {
                 logger.info("Auto re-unmounting \(drive.volumeName)")
                 let result = await diskService.forceUnmount(identifier: drive.identifier)
@@ -117,6 +129,38 @@ final class DriveStore: ObservableObject {
             pendingReUnmounts.remove(persistentId)
             await refresh()
         }
+    }
+
+    /// Re-register the helper daemon and retry the XPC connection.
+    /// Called from the UI when the helper is unreachable.
+    func retryHelperConnection() async {
+        logger.info("Retrying helper connection...")
+        statusMessage = "Re-registering helper daemon..."
+
+        // Ask AppDelegate to re-register the daemon
+        if let delegate = NSApp.delegate as? AppDelegate {
+            delegate.registerHelperDaemon()
+        }
+
+        // Give launchd a moment to spawn the helper
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+
+        // Restart monitoring (old connection was likely invalidated)
+        diskService.stopMonitoring()
+        diskService.startMonitoring { [weak self] in
+            Task { @MainActor in
+                self?.debouncedRefresh()
+            }
+        }
+
+        await refresh()
+
+        if helperConnected {
+            statusMessage = "Helper reconnected"
+        } else {
+            statusMessage = "Helper still unreachable — check System Settings > Login Items"
+        }
+        clearStatusAfterDelay()
     }
 
     private func clearStatusAfterDelay() {
@@ -224,7 +268,7 @@ final class DriveStore: ObservableObject {
             return collected
         }
         // Re-check which targets are now unmounted
-        let freshDrives = await diskService.discoverExternalDrives()
+        let freshDrives = await diskService.discoverExternalDrives() ?? []
         for drive in targets {
             if let fresh = freshDrives.first(where: { $0.persistentId == drive.persistentId }), !fresh.isMounted {
                 manuallyUnmountedIds.insert(drive.persistentId)
@@ -293,7 +337,7 @@ final class DriveStore: ObservableObject {
             return collected
         }
         // Track successfully unmounted drives
-        let freshDrives = await diskService.discoverExternalDrives()
+        let freshDrives = await diskService.discoverExternalDrives() ?? []
         for d in targets {
             if let fresh = freshDrives.first(where: { $0.persistentId == d.persistentId }), !fresh.isMounted {
                 manuallyUnmountedIds.insert(d.persistentId)
