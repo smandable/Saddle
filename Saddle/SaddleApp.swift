@@ -56,8 +56,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var configStore: ConfigStore?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Register the privileged helper daemon so launchd can start it on demand
+        // Register the privileged helper daemon so launchd can start it on demand.
+        // In debug builds this bootouts the old helper and bootstraps a fresh one,
+        // which invalidates any existing monitoring XPC connection.
         registerHelperDaemon()
+
+        // Restart monitoring so the persistent push connection targets the NEW helper
+        driveStore?.restartMonitoring()
 
         // Run migration + launch actions after a brief delay to let drives settle
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
@@ -76,6 +81,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 await driveStore.runLaunchActions(config: configStore.config)
             }
         }
+
+        // Suppress DA callbacks before sleep so auto re-unmount doesn't race with wake actions
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleSleep),
+            name: NSWorkspace.willSleepNotification,
+            object: nil
+        )
 
         // Re-run group actions when Mac wakes from sleep
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -112,23 +125,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     #if DEBUG
     private func loadHelperAgent() {
-        // Check if the agent is already registered — if so, don't bounce it
-        // (the build script may have already loaded it).
         let uid = getuid()
         let domain = "gui/\(uid)"
 
-        let check = Process()
-        check.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        check.arguments = ["print", "\(domain)/com.saddle.helper"]
-        check.standardOutput = FileHandle.nullDevice
-        check.standardError = FileHandle.nullDevice
-        try? check.run()
-        check.waitUntilExit()
-
-        if check.terminationStatus == 0 {
-            logger.info("Helper agent already loaded, skipping bootstrap")
-            return
-        }
+        // Always bootout + bootstrap in debug builds to ensure the freshly
+        // built helper binary is loaded (not a stale process from a previous run).
+        let bootout = Process()
+        bootout.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        bootout.arguments = ["bootout", "\(domain)/com.saddle.helper"]
+        bootout.standardOutput = FileHandle.nullDevice
+        bootout.standardError = FileHandle.nullDevice
+        try? bootout.run()
+        bootout.waitUntilExit()
 
         let helperPath = Bundle.main.executableURL!
             .deletingLastPathComponent()
@@ -145,6 +153,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 <string>com.saddle.helper</string>
                 <key>Program</key>
                 <string>\(helperPath)</string>
+                <key>KeepAlive</key>
+                <true/>
                 <key>MachServices</key>
                 <dict>
                     <key>com.saddle.helper</key>
@@ -171,15 +181,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     #endif
 
+    @objc private func handleSleep(_ notification: Notification) {
+        Task { @MainActor in
+            driveStore?.prepareForSleep()
+        }
+    }
+
     @objc private func handleWake(_ notification: Notification) {
-        // Delay to let macOS re-enumerate and mount drives.
-        // 5s initial wait — drives on USB hubs can take a few seconds to spin up.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
-            guard let self, let driveStore = self.driveStore, let configStore = self.configStore else { return }
-            Task { @MainActor in
-                await driveStore.refresh()
-                await driveStore.runWakeActions(config: configStore.config, force: configStore.config.useForceUnmount)
-            }
+        guard let driveStore = self.driveStore, let configStore = self.configStore else { return }
+        Task { @MainActor in
+            driveStore.handleWake(config: configStore.config, force: configStore.config.useForceUnmount)
         }
     }
 }

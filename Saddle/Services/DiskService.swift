@@ -8,17 +8,20 @@ private let logger = Logger(subsystem: "com.saddle.app", category: "DiskService"
 /// Provides disk discovery, mounting, unmounting, and real-time monitoring
 /// by communicating with the privileged SaddleHelper daemon over XPC.
 ///
-/// All DiskArbitration and IOKit operations run in the helper process.
-/// This class is a thin XPC client safe to use from a sandboxed app.
+/// Uses a single persistent XPC connection for all operations. In debug builds
+/// the helper runs as a user agent, and new Mach service connections don't
+/// reliably work — reusing one connection avoids that issue entirely.
 final class DiskService {
     static let shared = DiskService()
 
-    /// Persistent XPC connection used for monitoring (kept alive so the helper
-    /// can push `drivesDidChange()` callbacks back to us).
-    private var monitoringConnection: NSXPCConnection?
+    /// Single persistent XPC connection used for all operations.
+    private var connection: NSXPCConnection?
 
     /// Callback invoked when the helper reports a disk event.
     private var onChange: (() -> Void)?
+
+    /// Handler that receives push notifications from the helper.
+    private var clientHandler: ClientCallbackHandler?
 
     /// Tracks consecutive XPC failures so callers can show connection state.
     private(set) var consecutiveFailures: Int = 0
@@ -29,48 +32,79 @@ final class DiskService {
     private init() {}
 
 
+    // MARK: - Connection Management
+
+    /// Ensure the persistent XPC connection is alive. Creates and resumes
+    /// a new connection if the current one is nil (first call or after invalidation).
+    /// Returns the proxy, or nil if no connection could be established.
+    private func getProxy() -> SaddleXPCProtocol? {
+        if connection == nil {
+            let conn = createXPCConnection()
+
+            // Export the client callback interface so the helper can push notifications
+            if let handler = clientHandler {
+                conn.exportedInterface = NSXPCInterface(with: SaddleXPCClientProtocol.self)
+                conn.exportedObject = handler
+            }
+
+            conn.invalidationHandler = { [weak self] in
+                logger.warning("XPC connection invalidated")
+                self?.connection = nil
+            }
+
+            conn.interruptionHandler = { [weak self] in
+                logger.warning("XPC connection interrupted")
+                self?.connection = nil
+            }
+
+            conn.resume()
+            connection = conn
+
+            // If monitoring was active, re-start it on the new connection
+            if onChange != nil {
+                let proxy = conn.remoteObjectProxyWithErrorHandler { error in
+                    logger.error("Monitoring XPC error: \(error.localizedDescription)")
+                } as? SaddleXPCProtocol
+                proxy?.startMonitoring()
+                logger.info("XPC monitoring started (reconnect)")
+            }
+        }
+
+        return connection?.remoteObjectProxyWithErrorHandler { [weak self] error in
+            let msg = error.localizedDescription
+            logger.error("XPC error: \(msg)")
+            self?.consecutiveFailures += 1
+            self?.lastError = msg
+            // Don't invalidate connection here — a stale proxy's error handler
+            // could fire late and kill a newer, working connection.
+            // The connection's own invalidationHandler handles cleanup.
+        } as? SaddleXPCProtocol
+    }
+
+
     // MARK: - Monitoring
 
     /// Start real-time disk monitoring via the helper daemon.
     /// The helper registers DA callbacks and pushes `drivesDidChange()`
     /// notifications back over the XPC connection.
     func startMonitoring(onChange: @escaping () -> Void) {
-        guard monitoringConnection == nil else { return }
-
         self.onChange = onChange
+        self.clientHandler = ClientCallbackHandler(onChange: onChange)
 
-        let connection = createXPCConnection()
-
-        // Export the client callback interface so the helper can notify us
-        let clientHandler = ClientCallbackHandler(onChange: onChange)
-        connection.exportedInterface = NSXPCInterface(with: SaddleXPCClientProtocol.self)
-        connection.exportedObject = clientHandler
-
-        connection.invalidationHandler = { [weak self] in
-            logger.warning("Monitoring XPC connection invalidated")
-            self?.monitoringConnection = nil
-        }
-
-        connection.resume()
-        monitoringConnection = connection
-
-        // Tell the helper to start its DA monitoring session
-        let proxy = connection.remoteObjectProxyWithErrorHandler { error in
-            logger.error("Monitoring XPC error: \(error.localizedDescription)")
-        } as? SaddleXPCProtocol
-
-        proxy?.startMonitoring()
+        // Ensure connection exists (getProxy creates it if needed,
+        // and auto-starts monitoring when onChange is set)
+        let _ = getProxy()
         logger.info("XPC monitoring started")
     }
 
     func stopMonitoring() {
-        if let connection = monitoringConnection {
-            let proxy = connection.remoteObjectProxyWithErrorHandler { _ in } as? SaddleXPCProtocol
-            proxy?.stopMonitoring()
-            connection.invalidate()
+        if let proxy = connection?.remoteObjectProxyWithErrorHandler({ _ in }) as? SaddleXPCProtocol {
+            proxy.stopMonitoring()
         }
-        monitoringConnection = nil
+        connection?.invalidate()
+        connection = nil
         onChange = nil
+        clientHandler = nil
         logger.info("XPC monitoring stopped")
     }
 
@@ -82,24 +116,42 @@ final class DiskService {
     /// array which means the helper responded but found no drives).
     func discoverExternalDrives() async -> [ExternalDrive]? {
         await withCheckedContinuation { continuation in
-            let connection = createXPCConnection()
-            connection.resume()
+            var hasResumed = false
+            let lock = NSLock()
 
-            let proxy = connection.remoteObjectProxyWithErrorHandler { [weak self] error in
-                let msg = error.localizedDescription
-                logger.error("Discovery XPC error: \(msg)")
-                self?.consecutiveFailures += 1
-                self?.lastError = msg
-                continuation.resume(returning: nil)
-                connection.invalidate()
-            } as! SaddleXPCProtocol
+            func safeResume(_ value: [ExternalDrive]?) {
+                lock.lock()
+                guard !hasResumed else { lock.unlock(); return }
+                hasResumed = true
+                lock.unlock()
+                continuation.resume(returning: value)
+            }
+
+            guard let proxy = getProxy() else {
+                consecutiveFailures += 1
+                lastError = "No XPC connection"
+                logger.warning("Discovery failed: no XPC connection")
+                safeResume(nil)
+                return
+            }
 
             proxy.discoverExternalDrives { [weak self] dicts in
                 let drives = dicts.compactMap { ExternalDrive(fromXPCDictionary: $0) }
                 self?.consecutiveFailures = 0
                 self?.lastError = nil
-                continuation.resume(returning: drives)
-                connection.invalidate()
+                safeResume(drives)
+            }
+
+            // Safety timeout — only fires if reply never arrives
+            DispatchQueue.global().asyncAfter(deadline: .now() + 10) { [weak self] in
+                lock.lock()
+                let alreadyDone = hasResumed
+                lock.unlock()
+                guard !alreadyDone else { return }
+                self?.consecutiveFailures += 1
+                self?.lastError = "Discovery timeout"
+                logger.warning("Discovery XPC timeout")
+                safeResume(nil)
             }
         }
     }
@@ -110,18 +162,32 @@ final class DiskService {
     /// Mount a drive by its BSD identifier using the helper daemon.
     func mount(identifier: String) async -> DiskOperationResult {
         await withCheckedContinuation { continuation in
-            let connection = createXPCConnection()
-            connection.resume()
+            var hasResumed = false
+            let lock = NSLock()
 
-            let proxy = connection.remoteObjectProxyWithErrorHandler { error in
-                continuation.resume(returning: DiskOperationResult(
-                    success: false, message: "XPC error: \(error.localizedDescription)"))
-                connection.invalidate()
-            } as! SaddleXPCProtocol
+            func safeResume(_ result: DiskOperationResult) {
+                lock.lock()
+                guard !hasResumed else { lock.unlock(); return }
+                hasResumed = true
+                lock.unlock()
+                continuation.resume(returning: result)
+            }
+
+            guard let proxy = getProxy() else {
+                safeResume(DiskOperationResult(success: false, message: "No XPC connection"))
+                return
+            }
 
             proxy.mount(bsdName: identifier) { success, message in
-                continuation.resume(returning: DiskOperationResult(success: success, message: message))
-                connection.invalidate()
+                safeResume(DiskOperationResult(success: success, message: message))
+            }
+
+            DispatchQueue.global().asyncAfter(deadline: .now() + 30) {
+                lock.lock()
+                let alreadyDone = hasResumed
+                lock.unlock()
+                guard !alreadyDone else { return }
+                safeResume(DiskOperationResult(success: false, message: "Timeout (helper unresponsive)"))
             }
         }
     }
@@ -141,18 +207,33 @@ final class DiskService {
 
     private func performUnmount(identifier: String, force: Bool) async -> DiskOperationResult {
         await withCheckedContinuation { continuation in
-            let connection = createXPCConnection()
-            connection.resume()
+            var hasResumed = false
+            let lock = NSLock()
 
-            let proxy = connection.remoteObjectProxyWithErrorHandler { error in
-                continuation.resume(returning: DiskOperationResult(
-                    success: false, message: "XPC error: \(error.localizedDescription)"))
-                connection.invalidate()
-            } as! SaddleXPCProtocol
+            func safeResume(_ result: DiskOperationResult) {
+                lock.lock()
+                guard !hasResumed else { lock.unlock(); return }
+                hasResumed = true
+                lock.unlock()
+                continuation.resume(returning: result)
+            }
+
+            guard let proxy = getProxy() else {
+                safeResume(DiskOperationResult(success: false, message: "No XPC connection"))
+                return
+            }
 
             proxy.unmount(bsdName: identifier, force: force) { success, message in
-                continuation.resume(returning: DiskOperationResult(success: success, message: message))
-                connection.invalidate()
+                safeResume(DiskOperationResult(success: success, message: message))
+            }
+
+            // GCD timeout — fires on background queue, immune to actor blocking
+            DispatchQueue.global().asyncAfter(deadline: .now() + 60) {
+                lock.lock()
+                let alreadyDone = hasResumed
+                lock.unlock()
+                guard !alreadyDone else { return }
+                safeResume(DiskOperationResult(success: false, message: "Timeout (helper unresponsive)"))
             }
         }
     }
@@ -195,7 +276,7 @@ final class DiskService {
 
 // MARK: - Supporting Types
 
-struct DiskOperationResult {
+struct DiskOperationResult: Sendable {
     let success: Bool
     let message: String
 }

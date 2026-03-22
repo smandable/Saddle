@@ -26,76 +26,87 @@ final class DiskOperationService: NSObject, SaddleXPCProtocol {
 
     /// A long-lived DA session for monitoring callbacks.
     private var monitoringSession: DASession?
+    /// Background queue for DA monitoring — keeps main run loop free for XPC.
+    private var monitoringQueue: DispatchQueue?
 
     /// BSD identifiers of drives we've previously seen as external.
     /// Used to re-discover unmounted APFS volumes that may vanish from IOKit.
     private var knownExternalIdentifiers: Set<String> = []
 
+    /// True while a delayed client notification is pending — drops DA events during cooldown.
+    private var notifyScheduled = false
+
 
     // MARK: - Discovery
 
     func discoverExternalDrives(withReply reply: @escaping ([[String: String]]) -> Void) {
-        guard let session = createSession() else {
-            reply([])
-            return
-        }
+        // Run on a background queue — IOKit iteration + DADiskCopyDescription
+        // can take 10+ seconds with many disks and would block the main XPC thread.
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
+            guard let session = createSession() else {
+                logger.error("Discovery: failed to create DA session")
+                reply([])
+                return
+            }
 
-        var drives: [[String: String]] = []
-        var foundIdentifiers: Set<String> = []
+            var drives: [[String: String]] = []
+            var foundIdentifiers: Set<String> = []
 
-        // ── Pass 1: Iterate IOMedia nodes in the I/O Registry ────────
-        let matching = IOServiceMatching("IOMedia")
-        var iterator: io_iterator_t = 0
-        let kr = IOServiceGetMatchingServices(kIOMainPortCompat, matching, &iterator)
+            // ── Pass 1: Iterate IOMedia nodes in the I/O Registry ────────
+            let matching = IOServiceMatching("IOMedia") as NSMutableDictionary
+            matching["Leaf"] = true  // Only leaf partitions — skip containers & parent nodes
+            var iterator: io_iterator_t = 0
+            let kr = IOServiceGetMatchingServices(kIOMainPortCompat, matching, &iterator)
 
-        if kr == KERN_SUCCESS {
-            defer { IOObjectRelease(iterator) }
+            if kr == KERN_SUCCESS {
+                defer { IOObjectRelease(iterator) }
 
-            var service = IOIteratorNext(iterator)
-            while service != 0 {
-                defer {
-                    IOObjectRelease(service)
-                    service = IOIteratorNext(iterator)
+                var service = IOIteratorNext(iterator)
+                while service != 0 {
+                    defer {
+                        IOObjectRelease(service)
+                        service = IOIteratorNext(iterator)
+                    }
+
+                    guard let daDisk = DADiskCreateFromIOMedia(kCFAllocatorDefault, session, service) else {
+                        continue
+                    }
+
+                    if let info = extractDriveInfo(from: daDisk, session: session) {
+                        drives.append(info.dictionary)
+                        foundIdentifiers.insert(info.identifier)
+                    }
                 }
+            } else {
+                logger.error("IOServiceGetMatchingServices failed: \(kr)")
+            }
 
-                guard let daDisk = DADiskCreateFromIOMedia(kCFAllocatorDefault, session, service) else {
+            // ── Pass 2: Re-check previously known external drives ────────
+            for knownId in self.knownExternalIdentifiers {
+                if foundIdentifiers.contains(knownId) { continue }
+
+                guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, knownId) else {
+                    self.knownExternalIdentifiers.remove(knownId)
                     continue
                 }
 
-                if let info = extractDriveInfo(from: daDisk, session: session) {
+                if let info = extractDriveInfo(from: disk, session: session) {
                     drives.append(info.dictionary)
                     foundIdentifiers.insert(info.identifier)
+                } else {
+                    self.knownExternalIdentifiers.remove(knownId)
                 }
             }
-        } else {
-            logger.error("IOServiceGetMatchingServices failed: \(kr)")
-        }
 
-        // ── Pass 2: Re-check previously known external drives ────────
-        for knownId in knownExternalIdentifiers {
-            if foundIdentifiers.contains(knownId) { continue }
+            self.knownExternalIdentifiers.formUnion(foundIdentifiers)
 
-            guard let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, knownId) else {
-                knownExternalIdentifiers.remove(knownId)
-                continue
+            // Sort by volume name
+            let sorted = drives.sorted {
+                ($0["volumeName"] ?? "").lowercased() < ($1["volumeName"] ?? "").lowercased()
             }
 
-            if let info = extractDriveInfo(from: disk, session: session) {
-                drives.append(info.dictionary)
-                foundIdentifiers.insert(info.identifier)
-            } else {
-                knownExternalIdentifiers.remove(knownId)
-            }
+            reply(sorted)
         }
-
-        knownExternalIdentifiers.formUnion(foundIdentifiers)
-
-        // Sort by volume name
-        let sorted = drives.sorted {
-            ($0["volumeName"] ?? "").lowercased() < ($1["volumeName"] ?? "").lowercased()
-        }
-
-        reply(sorted)
     }
 
 
@@ -110,7 +121,9 @@ final class DiskOperationService: NSObject, SaddleXPCProtocol {
             return
         }
 
-        DASessionScheduleWithRunLoop(session, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
+        // Use a background queue — keep main run loop free for XPC
+        let queue = DispatchQueue(label: "com.saddle.helper.mount.\(bsdName)")
+        DASessionSetDispatchQueue(session, queue)
 
         let ctx = Unmanaged.passRetained(
             OperationContext(identifier: bsdName, session: session, reply: reply)
@@ -124,9 +137,7 @@ final class DiskOperationService: NSObject, SaddleXPCProtocol {
                 guard let context = context else { return }
                 let opCtx = Unmanaged<OperationContext>.fromOpaque(context).takeRetainedValue()
 
-                DASessionUnscheduleFromRunLoop(
-                    opCtx.session, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue
-                )
+                DASessionSetDispatchQueue(opCtx.session, nil) // unschedule
 
                 if let dissenter = dissenter {
                     let reason = dissenterMessage(dissenter)
@@ -153,7 +164,9 @@ final class DiskOperationService: NSObject, SaddleXPCProtocol {
             return
         }
 
-        DASessionScheduleWithRunLoop(session, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
+        // Use a background queue — keep main run loop free for XPC
+        let queue = DispatchQueue(label: "com.saddle.helper.unmount.\(bsdName)")
+        DASessionSetDispatchQueue(session, queue)
 
         let ctx = Unmanaged.passRetained(
             OperationContext(identifier: bsdName, session: session, reply: reply, force: force)
@@ -170,9 +183,7 @@ final class DiskOperationService: NSObject, SaddleXPCProtocol {
                 guard let context = context else { return }
                 let opCtx = Unmanaged<OperationContext>.fromOpaque(context).takeRetainedValue()
 
-                DASessionUnscheduleFromRunLoop(
-                    opCtx.session, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue
-                )
+                DASessionSetDispatchQueue(opCtx.session, nil) // unschedule
 
                 let verb = opCtx.force ? "Force unmount" : "Unmount"
 
@@ -234,26 +245,38 @@ final class DiskOperationService: NSObject, SaddleXPCProtocol {
             }, contextPtr
         )
 
-        DASessionScheduleWithRunLoop(session, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
-        logger.info("DA monitoring started")
+        // Use a dedicated background queue — NOT the main run loop.
+        // The main run loop also handles XPC requests; DA callback floods
+        // block discovery/mount/unmount from being processed.
+        let queue = DispatchQueue(label: "com.saddle.helper.monitoring", qos: .utility)
+        DASessionSetDispatchQueue(session, queue)
+        monitoringQueue = queue
+        logger.info("DA monitoring started (background queue)")
     }
 
     func stopMonitoring() {
         if let session = monitoringSession {
-            DASessionUnscheduleFromRunLoop(session, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
+            DASessionSetDispatchQueue(session, nil) // unschedule
         }
         monitoringSession = nil
+        monitoringQueue = nil
         logger.info("DA monitoring stopped")
     }
 
     /// Push a drivesDidChange notification to the connected app.
+    /// Throttled — first DA event starts a 2s cooldown; events during cooldown are dropped.
     fileprivate func notifyClient() {
-        guard let connection = clientConnection else { return }
-        let client = connection.remoteObjectProxyWithErrorHandler { error in
-            logger.warning("Failed to notify client: \(error.localizedDescription)")
-        } as? SaddleXPCClientProtocol
-
-        client?.drivesDidChange()
+        guard !notifyScheduled else { return }
+        notifyScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            guard let self else { return }
+            self.notifyScheduled = false
+            guard let connection = self.clientConnection else { return }
+            let client = connection.remoteObjectProxyWithErrorHandler { error in
+                logger.warning("Failed to notify client: \(error.localizedDescription)")
+            } as? SaddleXPCClientProtocol
+            client?.drivesDidChange()
+        }
     }
 
 
