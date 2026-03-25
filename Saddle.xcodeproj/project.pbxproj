@@ -51,24 +51,6 @@
 		};
 /* End PBXCopyFilesBuildPhase section */
 
-/* Begin PBXShellScriptBuildPhase section */
-		14D26AB02F6A0000005B6CBD /* Load Helper Agent (Debug) */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Load Helper Agent (Debug)";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/bash;
-			shellScript = "if [ \"$CONFIGURATION\" = \"Debug\" ]; then\n    PLIST_PATH=\"/tmp/com.saddle.helper.plist\"\n    HELPER_PATH=\"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/Contents/MacOS/SaddleHelper\"\n    cat > \"$PLIST_PATH\" << EOFPLIST\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\"\n  \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n    <key>Label</key>\n    <string>com.saddle.helper</string>\n    <key>Program</key>\n    <string>${HELPER_PATH}</string>\n    <key>MachServices</key>\n    <dict>\n        <key>com.saddle.helper</key>\n        <true/>\n    </dict>\n</dict>\n</plist>\nEOFPLIST\n    launchctl bootout \"gui/$(id -u)/com.saddle.helper\" 2>/dev/null || true\n    launchctl bootstrap \"gui/$(id -u)\" \"$PLIST_PATH\"\n    echo \"Helper agent loaded: $HELPER_PATH\"\nfi\n";
-		};
-/* End PBXShellScriptBuildPhase section */
-
 /* Begin PBXFileReference section */
 		14D26A752F688D3A005B6CBD /* SaddleHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = SaddleHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		14D26A832F688E39005B6CBD /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = System/Library/Frameworks/DiskArbitration.framework; sourceTree = SDKROOT; };
@@ -200,7 +182,7 @@
 			name = Saddle;
 			packageProductDependencies = (
 			);
-			productName = DriveManager;
+			productName = Saddle;
 			productReference = 14EC4A032F5B510700FF55EC /* Saddle.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -252,6 +234,24 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		14D26AB02F6A0000005B6CBD /* Load Helper Agent (Debug) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Load Helper Agent (Debug)";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "if [ \"$CONFIGURATION\" = \"Debug\" ]; then\n    PLIST_PATH=\"/tmp/com.saddle.helper.plist\"\n    HELPER_PATH=\"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/Contents/MacOS/SaddleHelper\"\n    cat > \"$PLIST_PATH\" << EOFPLIST\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\"\n  \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n    <key>Label</key>\n    <string>com.saddle.helper</string>\n    <key>Program</key>\n    <string>${HELPER_PATH}</string>\n    <key>MachServices</key>\n    <dict>\n        <key>com.saddle.helper</key>\n        <true/>\n    </dict>\n</dict>\n</plist>\nEOFPLIST\n    launchctl bootout \"gui/$(id -u)/com.saddle.helper\" 2>/dev/null || true\n    launchctl bootstrap \"gui/$(id -u)\" \"$PLIST_PATH\"\n    echo \"Helper agent loaded: $HELPER_PATH\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		14D26A712F688D3A005B6CBD /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -288,10 +288,12 @@
 				CODE_SIGN_ENTITLEMENTS = SaddleHelper/SaddleHelper.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 7VP76365KX;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.saddle.helper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -307,10 +309,12 @@
 				CODE_SIGN_ENTITLEMENTS = SaddleHelper/SaddleHelper.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 7VP76365KX;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.saddle.helper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -447,7 +451,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 7VP76365KX;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -462,7 +466,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.seanmandable.saddle;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -482,7 +486,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 7VP76365KX;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -497,7 +501,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.seanmandable.saddle;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

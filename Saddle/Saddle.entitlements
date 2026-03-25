@@ -10,5 +10,11 @@
     <!-- Allow reading/writing to user-selected volumes (for mounted drive access) -->
     <key>com.apple.security.files.user-selected.read-write</key>
     <true/>
+
+    <!-- Allow sandboxed app to connect to privileged SaddleHelper daemon via XPC -->
+    <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+    <array>
+        <string>com.saddle.helper</string>
+    </array>
 </dict>
 </plist>
