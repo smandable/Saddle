@@ -14,11 +14,11 @@ Open the `.dmg`, drag Saddle to Applications, and launch. On first launch, macOS
 
 ![Menu Bar](screenshots/Saddle%20-%20Menu%20bar.png)
 
+![Settings — General](screenshots/Saddle%20Settings%20-%20General.png)
+
 ![Settings — Drives](screenshots/Saddle%20Settings%20-%20Drives.png)
 
 ![Settings — Groups](screenshots/Saddle%20Settings%20-%20Groups.png)
-
-![Settings — General](screenshots/Saddle%20Settings%20-%20General.png)
 
 ---
 
