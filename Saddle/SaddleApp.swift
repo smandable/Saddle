@@ -100,19 +100,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func registerHelperDaemon() {
-        #if DEBUG
-        // In debug builds the helper runs as a user agent (not a system
-        // daemon) to avoid SMAppService/BTM issues during development.
-        // Load it via launchctl if not already running.
-        loadHelperAgent()
-        #else
+        #if USE_SMAPPSERVICE
+        // App Store path: register via SMAppService so launchd manages the
+        // helper as a system daemon. Requires sandbox + BTM approval.
         let daemon = SMAppService.daemon(plistName: "com.seanmandable.saddle.helper.plist")
         let status = daemon.status
         logger.info("Helper daemon status: \(String(describing: status), privacy: .public)")
 
-        // Unregister first to clear any stale BTM entries (e.g. after app
-        // relocation or update), then re-register from the current bundle path.
-        // unregister() may fail if not currently registered — that's fine.
         try? daemon.unregister()
 
         do {
@@ -121,10 +115,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             logger.error("Failed to register helper daemon: \(error.localizedDescription, privacy: .public)")
         }
+        #else
+        // Developer ID path: load helper as a user agent via launchctl.
+        // No SMAppService/BTM involvement — works without sandbox.
+        loadHelperAgent()
         #endif
     }
 
-    #if DEBUG
     private func loadHelperAgent() {
         let uid = getuid()
         let domain = "gui/\(uid)"
@@ -180,7 +177,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             logger.error("Failed to load helper agent (exit \(bootstrap.terminationStatus))")
         }
     }
-    #endif
 
     @objc private func handleSleep(_ notification: Notification) {
         Task { @MainActor in

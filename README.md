@@ -2,6 +2,12 @@
 
 A native SwiftUI menu bar app for managing external drives on macOS. Mount, unmount, organize into groups, and auto-manage drives at login.
 
+## Download
+
+**[Download Saddle 1.1.1](https://github.com/smandable/Saddle/releases/latest)**
+
+Unzip, drag to `/Applications`, and launch. On first launch, macOS will ask you to allow the background helper in System Settings > Login Items.
+
 ---
 
 ## Features
@@ -15,7 +21,7 @@ A native SwiftUI menu bar app for managing external drives on macOS. Mount, unmo
 - **Login item** — start at login via macOS ServiceManagement (no LaunchAgent needed)
 - **Real-time monitoring** — DiskArbitration callbacks detect drive connect/disconnect instantly
 - **Settings window** — full GUI for managing groups, aliases, and preferences
-- **Native macOS** — SwiftUI, no dependencies, App Store-ready architecture
+- **Native macOS** — SwiftUI, no dependencies, notarized by Apple
 
 ---
 

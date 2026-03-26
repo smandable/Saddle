@@ -261,12 +261,12 @@ final class DiskService {
     // MARK: - XPC Connection
 
     private func createXPCConnection() -> NSXPCConnection {
-        #if DEBUG
-        // In debug builds the helper runs as a user agent (gui domain),
-        // not a system daemon, so we must NOT use .privileged.
-        let connection = NSXPCConnection(machServiceName: "com.seanmandable.saddle.helper", options: [])
-        #else
+        #if USE_SMAPPSERVICE
+        // App Store path: connect to system daemon (requires .privileged).
         let connection = NSXPCConnection(machServiceName: "com.seanmandable.saddle.helper", options: .privileged)
+        #else
+        // Developer ID path: connect to user agent (no .privileged needed).
+        let connection = NSXPCConnection(machServiceName: "com.seanmandable.saddle.helper", options: [])
         #endif
         connection.remoteObjectInterface = NSXPCInterface(with: SaddleXPCProtocol.self)
         return connection
