@@ -64,6 +64,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Restart monitoring so the persistent push connection targets the NEW helper
         driveStore?.restartMonitoring()
 
+        // Check for updates silently on launch if enabled
+        if configStore?.config.checkForUpdatesAutomatically == true {
+            UpdateService.shared.checkForUpdates(silent: true)
+        }
+
         // Run migration + launch actions after a brief delay to let drives settle
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
             guard let self, let driveStore = self.driveStore, let configStore = self.configStore else { return }

@@ -109,6 +109,10 @@ struct MenuBarView: View {
         }
         .keyboardShortcut(",")
 
+        Button("Check for Updates…") {
+            UpdateService.shared.checkForUpdates()
+        }
+
         Divider()
 
         Button("Quit Saddle") {

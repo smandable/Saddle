@@ -99,6 +99,7 @@ struct AppConfig: Codable {
     var driveAliases: [String: String] = [:]
     var launchAtLogin: Bool = false
     var useForceUnmount: Bool = false
+    var checkForUpdatesAutomatically: Bool = false
 
     static let `default` = AppConfig()
 
@@ -119,5 +120,6 @@ struct AppConfig: Codable {
         driveAliases = try c.decodeIfPresent([String: String].self, forKey: .driveAliases) ?? [:]
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
         useForceUnmount = try c.decodeIfPresent(Bool.self, forKey: .useForceUnmount) ?? false
+        checkForUpdatesAutomatically = try c.decodeIfPresent(Bool.self, forKey: .checkForUpdatesAutomatically) ?? false
     }
 }

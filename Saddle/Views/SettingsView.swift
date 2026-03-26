@@ -405,12 +405,6 @@ struct GeneralTab: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Start Saddle at login",
-                       isOn: Binding(
-                        get: { configStore.config.launchAtLogin },
-                        set: { configStore.setLaunchAtLogin($0) }
-                       ))
-
                 Toggle("Run group actions automatically at launch",
                        isOn: $configStore.config.autoActionsOnLaunch)
 
@@ -431,6 +425,19 @@ struct GeneralTab: View {
                             if newValue { configStore.config.mountAllOnLaunch = false }
                         }
                        ))
+
+                Toggle("Start Saddle at login",
+                       isOn: Binding(
+                        get: { configStore.config.launchAtLogin },
+                        set: { configStore.setLaunchAtLogin($0) }
+                       ))
+
+                Toggle("Check for updates automatically",
+                       isOn: $configStore.config.checkForUpdatesAutomatically)
+
+                Button("Check Now") {
+                    UpdateService.shared.checkForUpdates()
+                }
             } header: {
                 Text("Startup")
             }
