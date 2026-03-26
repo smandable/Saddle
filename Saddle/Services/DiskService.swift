@@ -264,9 +264,9 @@ final class DiskService {
         #if DEBUG
         // In debug builds the helper runs as a user agent (gui domain),
         // not a system daemon, so we must NOT use .privileged.
-        let connection = NSXPCConnection(machServiceName: "com.saddle.helper", options: [])
+        let connection = NSXPCConnection(machServiceName: "com.seanmandable.saddle.helper", options: [])
         #else
-        let connection = NSXPCConnection(machServiceName: "com.saddle.helper", options: .privileged)
+        let connection = NSXPCConnection(machServiceName: "com.seanmandable.saddle.helper", options: .privileged)
         #endif
         connection.remoteObjectInterface = NSXPCInterface(with: SaddleXPCProtocol.self)
         return connection

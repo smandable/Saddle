@@ -4,12 +4,12 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.saddle.helper</string>
+    <string>com.seanmandable.saddle.helper</string>
     <key>BundleProgram</key>
     <string>Contents/MacOS/SaddleHelper</string>
     <key>MachServices</key>
     <dict>
-        <key>com.saddle.helper</key>
+        <key>com.seanmandable.saddle.helper</key>
         <true/>
     </dict>
     <key>AssociatedBundleIdentifiers</key>

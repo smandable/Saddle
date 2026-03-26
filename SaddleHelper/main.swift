@@ -8,12 +8,12 @@
 import Foundation
 import os.log
 
-let mainLogger = Logger(subsystem: "com.saddle.helper", category: "Main")
+let mainLogger = Logger(subsystem: "com.seanmandable.saddle.helper", category: "Main")
 
 mainLogger.info("SaddleHelper daemon starting")
 
 let delegate = HelperDelegate()
-let listener = NSXPCListener(machServiceName: "com.saddle.helper")
+let listener = NSXPCListener(machServiceName: "com.seanmandable.saddle.helper")
 listener.delegate = delegate
 listener.resume()
 

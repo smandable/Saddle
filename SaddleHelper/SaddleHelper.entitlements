@@ -2,5 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict/>
+<dict>
+    <!-- Allow helper to communicate with DiskArbitration daemon -->
+    <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+    <array>
+        <string>com.apple.DiskArbitration.diskarbitrationd</string>
+    </array>
+
+    <!-- Allow helper to access IOKit for drive enumeration -->
+    <key>com.apple.security.temporary-exception.iokit-user-client-class</key>
+    <array>
+        <string>IOMediaBSDClient</string>
+    </array>
+
+</dict>
 </plist>
