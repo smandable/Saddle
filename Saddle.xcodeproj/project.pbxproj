@@ -14,8 +14,8 @@
 		14D26A8D2F688FD5005B6CBD /* DissenterHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14D26A892F688FD5005B6CBD /* DissenterHelpers.swift */; };
 		14D26A8E2F688FD5005B6CBD /* SaddleXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14D26A8A2F688FD5005B6CBD /* SaddleXPCProtocol.swift */; };
 		14D26A8F2F688FD5005B6CBD /* DissenterHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14D26A892F688FD5005B6CBD /* DissenterHelpers.swift */; };
-		14D26A9B2F6895CD005B6CBD /* SaddleHelper in CopyFiles */ = {isa = PBXBuildFile; fileRef = 14D26A752F688D3A005B6CBD /* SaddleHelper */; };
-		14D26AA02F689700005B6CBD /* com.saddle.helper.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 14D26A9F2F689700005B6CBD /* com.saddle.helper.plist */; };
+		14D26A9B2F6895CD005B6CBD /* SaddleHelper in CopyFiles */ = {isa = PBXBuildFile; fileRef = 14D26A752F688D3A005B6CBD /* SaddleHelper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		14D26AA02F689700005B6CBD /* com.seanmandable.saddle.helper.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 14D26A9F2F689700005B6CBD /* com.seanmandable.saddle.helper.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -45,7 +45,7 @@
 			dstPath = Contents/Library/LaunchDaemons;
 			dstSubfolderSpec = 1;
 			files = (
-				14D26AA02F689700005B6CBD /* com.saddle.helper.plist in CopyFiles */,
+				14D26AA02F689700005B6CBD /* com.seanmandable.saddle.helper.plist in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -58,7 +58,7 @@
 		14D26A872F688E50005B6CBD /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		14D26A892F688FD5005B6CBD /* DissenterHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DissenterHelpers.swift; sourceTree = "<group>"; };
 		14D26A8A2F688FD5005B6CBD /* SaddleXPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaddleXPCProtocol.swift; sourceTree = "<group>"; };
-		14D26A9F2F689700005B6CBD /* com.saddle.helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = com.saddle.helper.plist; path = SaddleHelper/com.saddle.helper.plist; sourceTree = "<group>"; };
+		14D26A9F2F689700005B6CBD /* com.seanmandable.saddle.helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = com.seanmandable.saddle.helper.plist; path = SaddleHelper/com.seanmandable.saddle.helper.plist; sourceTree = "<group>"; };
 		14EC4A032F5B510700FF55EC /* Saddle.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Saddle.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -121,7 +121,7 @@
 				14D26A8B2F688FD5005B6CBD /* Shared */,
 				14EC4A052F5B510700FF55EC /* Saddle */,
 				14D26A762F688D3A005B6CBD /* SaddleHelper */,
-				14D26A9F2F689700005B6CBD /* com.saddle.helper.plist */,
+				14D26A9F2F689700005B6CBD /* com.seanmandable.saddle.helper.plist */,
 				14D26A822F688E39005B6CBD /* Frameworks */,
 				14EC4A042F5B510700FF55EC /* Products */,
 			);
@@ -194,7 +194,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2630;
-				LastUpgradeCheck = 2630;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
 					14D26A742F688D3A005B6CBD = {
 						CreatedOnToolsVersion = 26.3;
@@ -248,7 +248,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "if [ \"$CONFIGURATION\" = \"Debug\" ]; then\n    PLIST_PATH=\"/tmp/com.saddle.helper.plist\"\n    HELPER_PATH=\"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/Contents/MacOS/SaddleHelper\"\n    cat > \"$PLIST_PATH\" << EOFPLIST\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\"\n  \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n    <key>Label</key>\n    <string>com.saddle.helper</string>\n    <key>Program</key>\n    <string>${HELPER_PATH}</string>\n    <key>MachServices</key>\n    <dict>\n        <key>com.saddle.helper</key>\n        <true/>\n    </dict>\n</dict>\n</plist>\nEOFPLIST\n    launchctl bootout \"gui/$(id -u)/com.saddle.helper\" 2>/dev/null || true\n    launchctl bootstrap \"gui/$(id -u)\" \"$PLIST_PATH\"\n    echo \"Helper agent loaded: $HELPER_PATH\"\nfi\n";
+			shellScript = "if [ \"$CONFIGURATION\" = \"Debug\" ]; then\n    PLIST_PATH=\"/tmp/com.seanmandable.saddle.helper.plist\"\n    HELPER_PATH=\"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/Contents/MacOS/SaddleHelper\"\n    cat > \"$PLIST_PATH\" << EOFPLIST\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\"\n  \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n    <key>Label</key>\n    <string>com.saddle.helper</string>\n    <key>Program</key>\n    <string>${HELPER_PATH}</string>\n    <key>MachServices</key>\n    <dict>\n        <key>com.saddle.helper</key>\n        <true/>\n    </dict>\n</dict>\n</plist>\nEOFPLIST\n    launchctl bootout \"gui/$(id -u)/com.saddle.helper\" 2>/dev/null || true\n    launchctl bootstrap \"gui/$(id -u)\" \"$PLIST_PATH\"\n    echo \"Helper agent loaded: $HELPER_PATH\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -288,13 +288,16 @@
 				CODE_SIGN_ENTITLEMENTS = SaddleHelper/SaddleHelper.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				CURRENT_PROJECT_VERSION = 10;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 7VP76365KX;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.saddle.helper;
+				MARKETING_VERSION = 1.1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.seanmandable.saddle.helper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -309,13 +312,16 @@
 				CODE_SIGN_ENTITLEMENTS = SaddleHelper/SaddleHelper.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				CURRENT_PROJECT_VERSION = 10;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 7VP76365KX;
-				ENABLE_APP_SANDBOX = NO;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.saddle.helper;
+				MARKETING_VERSION = 1.1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.seanmandable.saddle.helper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -358,6 +364,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 7VP76365KX;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -383,6 +390,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -422,6 +430,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 7VP76365KX;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -440,6 +449,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -449,9 +459,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Saddle/Saddle.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 10;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 7VP76365KX;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -459,6 +471,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Saddle;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -466,7 +479,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.seanmandable.saddle;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -484,9 +497,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Saddle/Saddle.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 10;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 7VP76365KX;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -494,6 +509,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Saddle;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -501,7 +517,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.seanmandable.saddle;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

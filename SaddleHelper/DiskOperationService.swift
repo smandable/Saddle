@@ -4,7 +4,7 @@ import IOKit
 import IOKit.storage
 import os.log
 
-private let logger = Logger(subsystem: "com.saddle.helper", category: "DiskOperationService")
+private let logger = Logger(subsystem: "com.seanmandable.saddle.helper", category: "DiskOperationService")
 
 // MARK: - IOKit Compatibility
 
@@ -122,7 +122,7 @@ final class DiskOperationService: NSObject, SaddleXPCProtocol {
         }
 
         // Use a background queue — keep main run loop free for XPC
-        let queue = DispatchQueue(label: "com.saddle.helper.mount.\(bsdName)")
+        let queue = DispatchQueue(label: "com.seanmandable.saddle.helper.mount.\(bsdName)")
         DASessionSetDispatchQueue(session, queue)
 
         let ctx = Unmanaged.passRetained(
@@ -165,7 +165,7 @@ final class DiskOperationService: NSObject, SaddleXPCProtocol {
         }
 
         // Use a background queue — keep main run loop free for XPC
-        let queue = DispatchQueue(label: "com.saddle.helper.unmount.\(bsdName)")
+        let queue = DispatchQueue(label: "com.seanmandable.saddle.helper.unmount.\(bsdName)")
         DASessionSetDispatchQueue(session, queue)
 
         let ctx = Unmanaged.passRetained(
@@ -248,7 +248,7 @@ final class DiskOperationService: NSObject, SaddleXPCProtocol {
         // Use a dedicated background queue — NOT the main run loop.
         // The main run loop also handles XPC requests; DA callback floods
         // block discovery/mount/unmount from being processed.
-        let queue = DispatchQueue(label: "com.saddle.helper.monitoring", qos: .utility)
+        let queue = DispatchQueue(label: "com.seanmandable.saddle.helper.monitoring", qos: .utility)
         DASessionSetDispatchQueue(session, queue)
         monitoringQueue = queue
         logger.info("DA monitoring started (background queue)")
@@ -400,7 +400,7 @@ private class OperationContext {
         self.identifier = identifier
         self.session = session
         self.reply = reply
-        self.log = Logger(subsystem: "com.saddle.helper", category: "DiskOperationService")
+        self.log = Logger(subsystem: "com.seanmandable.saddle.helper", category: "DiskOperationService")
         self.force = force
     }
 }
@@ -411,7 +411,7 @@ private class MonitoringContext {
 
     init(service: DiskOperationService) {
         self.service = service
-        self.log = Logger(subsystem: "com.saddle.helper", category: "DiskOperationService")
+        self.log = Logger(subsystem: "com.seanmandable.saddle.helper", category: "DiskOperationService")
     }
 
     func notifyClient() {

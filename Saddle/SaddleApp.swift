@@ -106,19 +106,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Load it via launchctl if not already running.
         loadHelperAgent()
         #else
-        let daemon = SMAppService.daemon(plistName: "com.saddle.helper.plist")
+        let daemon = SMAppService.daemon(plistName: "com.seanmandable.saddle.helper.plist")
         let status = daemon.status
-        logger.info("Helper daemon status: \(String(describing: status))")
+        logger.info("Helper daemon status: \(String(describing: status), privacy: .public)")
 
-        if status != .enabled {
-            do {
-                try daemon.register()
-                logger.info("Helper daemon registered successfully")
-            } catch {
-                logger.error("Failed to register helper daemon: \(error.localizedDescription)")
-            }
-        } else {
-            logger.info("Helper daemon already registered")
+        // Unregister first to clear any stale BTM entries (e.g. after app
+        // relocation or update), then re-register from the current bundle path.
+        // unregister() may fail if not currently registered — that's fine.
+        try? daemon.unregister()
+
+        do {
+            try daemon.register()
+            logger.info("Helper daemon registered successfully")
+        } catch {
+            logger.error("Failed to register helper daemon: \(error.localizedDescription, privacy: .public)")
         }
         #endif
     }
@@ -132,7 +133,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // built helper binary is loaded (not a stale process from a previous run).
         let bootout = Process()
         bootout.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        bootout.arguments = ["bootout", "\(domain)/com.saddle.helper"]
+        bootout.arguments = ["bootout", "\(domain)/com.seanmandable.saddle.helper"]
         bootout.standardOutput = FileHandle.nullDevice
         bootout.standardError = FileHandle.nullDevice
         try? bootout.run()
@@ -150,21 +151,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             <plist version="1.0">
             <dict>
                 <key>Label</key>
-                <string>com.saddle.helper</string>
+                <string>com.seanmandable.saddle.helper</string>
                 <key>Program</key>
                 <string>\(helperPath)</string>
                 <key>KeepAlive</key>
                 <true/>
                 <key>MachServices</key>
                 <dict>
-                    <key>com.saddle.helper</key>
+                    <key>com.seanmandable.saddle.helper</key>
                     <true/>
                 </dict>
             </dict>
             </plist>
             """
 
-        let plistPath = "/tmp/com.saddle.helper.plist"
+        let plistPath = "/tmp/com.seanmandable.saddle.helper.plist"
         try? plistContent.write(toFile: plistPath, atomically: true, encoding: .utf8)
 
         let bootstrap = Process()
