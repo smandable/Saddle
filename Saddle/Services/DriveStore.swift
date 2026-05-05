@@ -19,6 +19,7 @@ final class DriveStore: ObservableObject {
     private let diskService = DiskService.shared
     private var refreshTimer: Timer?
     private var hasRunLaunchActions = false
+    private var hasCompletedFirstRefresh = false
     private var debounceTask: Task<Void, Never>?
 
     /// Persistent IDs of drives the user explicitly unmounted this session.
@@ -110,6 +111,7 @@ final class DriveStore: ObservableObject {
         if let discovered = await diskService.discoverExternalDrives() {
             drives = discovered
             helperConnected = true
+            hasCompletedFirstRefresh = true
         } else {
             // XPC failed — keep existing drive list but mark disconnected
             helperConnected = false
@@ -417,8 +419,29 @@ final class DriveStore: ObservableObject {
 
     // MARK: - Launch Actions
 
+    /// Wait until the helper has responded to at least one discoverExternalDrives
+    /// call, OR the timeout elapses. Polls every 250ms.
+    @discardableResult
+    func waitForReady(timeout: TimeInterval = 30) async -> Bool {
+        let deadline = Date.now.addingTimeInterval(timeout)
+        while Date.now < deadline {
+            if hasCompletedFirstRefresh && helperConnected { return true }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+        logger.warning("waitForReady timed out after \(Int(timeout))s — running launch actions with current state")
+        return false
+    }
+
     func runLaunchActions(config: AppConfig) async {
         guard !hasRunLaunchActions else { return }
+
+        // If the helper never came up and we have no drives to act on, don't latch
+        // the guard — leave it so a later trigger can still run launch actions.
+        if !helperConnected && drives.isEmpty {
+            logger.warning("Skipping launch actions: helper unreachable and no drives discovered")
+            return
+        }
+
         hasRunLaunchActions = true
 
         let excluded = Set(config.excludedIdentifiers)
@@ -428,7 +451,7 @@ final class DriveStore: ObservableObject {
             logger.info("Mounting all drives on launch...")
             for drive in drives.filter({ !$0.isMounted && !excluded.contains($0.persistentId) }) {
                 let result = await diskService.mount(identifier: drive.identifier)
-                logger.info("Launch mount \(drive.volumeName): \(result.success ? "OK" : result.message)")
+                logger.info("Launch mount \(drive.volumeName, privacy: .public): \(result.success ? "OK" : result.message, privacy: .public)")
             }
             await refresh()
             logger.info("Launch mount-all complete")
@@ -443,14 +466,14 @@ final class DriveStore: ObservableObject {
             manuallyUnmountedIds.formUnion(managedIds)
 
             let targets = drives.filter { $0.isMounted && !excluded.contains($0.persistentId) }
-            logger.info("Unmounting all drives on launch (\(targets.count) targets)...")
+            logger.info("Unmounting all drives on launch (\(targets.count, privacy: .public) targets)...")
 
             // Unmount all targets — DiskService has built-in 10s timeout per call
             for drive in targets {
                 let result = config.useForceUnmount
                     ? await diskService.forceUnmount(identifier: drive.identifier)
                     : await diskService.unmount(identifier: drive.identifier)
-                logger.info("Launch unmount \(drive.volumeName): \(result.success ? "OK" : result.message)")
+                logger.info("Launch unmount \(drive.volumeName, privacy: .public): \(result.success ? "OK" : result.message, privacy: .public)")
             }
 
             await refresh(force: true)
@@ -471,7 +494,7 @@ final class DriveStore: ObservableObject {
                 for id in group.driveIdentifiers {
                     if let d = drive(for: id), !d.isMounted {
                         let result = await diskService.mount(identifier: d.identifier)
-                        logger.info("Launch mount \(d.volumeName): \(result.success ? "OK" : result.message)")
+                        logger.info("Launch mount \(d.volumeName, privacy: .public): \(result.success ? "OK" : result.message, privacy: .public)")
                     }
                 }
             case .unmount:
@@ -481,7 +504,7 @@ final class DriveStore: ObservableObject {
                         if result.success {
                             manuallyUnmountedIds.insert(d.persistentId)
                         }
-                        logger.info("Launch unmount \(d.volumeName): \(result.success ? "OK" : result.message)")
+                        logger.info("Launch unmount \(d.volumeName, privacy: .public): \(result.success ? "OK" : result.message, privacy: .public)")
                     }
                 }
             case .none:

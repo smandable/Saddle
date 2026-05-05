@@ -69,22 +69,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             UpdateService.shared.checkForUpdates(silent: true)
         }
 
-        // Run migration + launch actions after a brief delay to let drives settle
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+        // Wait for the helper to actually respond before reading drives.
+        // On warm launch this returns in <1s; on cold boot it may take 5–15s
+        // for launchd + DiskArbitration to settle.
+        Task { @MainActor [weak self] in
             guard let self, let driveStore = self.driveStore, let configStore = self.configStore else { return }
-            Task { @MainActor in
-                // Migrate config from BSD names to stable volume UUIDs
-                let mapping = Dictionary(
-                    uniqueKeysWithValues: driveStore.drives.compactMap { drive in
-                        drive.volumeUUID.map { (drive.identifier, $0) }
-                    }
-                )
-                if !mapping.isEmpty {
-                    configStore.migrateToVolumeUUIDs(mapping: mapping)
-                }
 
-                await driveStore.runLaunchActions(config: configStore.config)
+            await driveStore.waitForReady(timeout: 30)
+
+            // Migrate config from BSD names to stable volume UUIDs
+            let mapping = Dictionary(
+                uniqueKeysWithValues: driveStore.drives.compactMap { drive in
+                    drive.volumeUUID.map { (drive.identifier, $0) }
+                }
+            )
+            if !mapping.isEmpty {
+                configStore.migrateToVolumeUUIDs(mapping: mapping)
             }
+
+            await driveStore.runLaunchActions(config: configStore.config)
         }
 
         // Suppress DA callbacks before sleep so auto re-unmount doesn't race with wake actions
@@ -130,21 +133,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func loadHelperAgent() {
         let uid = getuid()
         let domain = "gui/\(uid)"
-
-        // Always bootout + bootstrap in debug builds to ensure the freshly
-        // built helper binary is loaded (not a stale process from a previous run).
-        let bootout = Process()
-        bootout.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        bootout.arguments = ["bootout", "\(domain)/com.seanmandable.saddle.helper"]
-        bootout.standardOutput = FileHandle.nullDevice
-        bootout.standardError = FileHandle.nullDevice
-        try? bootout.run()
-        bootout.waitUntilExit()
+        let serviceTarget = "\(domain)/com.seanmandable.saddle.helper"
 
         let helperPath = Bundle.main.executableURL!
             .deletingLastPathComponent()
             .appendingPathComponent("SaddleHelper")
             .path
+
+        // Skip bootout when the binary hasn't changed — preserves the running
+        // helper across launches, avoiding XPC invalidation on cold boot.
+        // Debug builds always bootout to pick up freshly built helper binaries.
+        let currentVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+        let lastVersionKey = "lastBootstrappedHelperVersion"
+        let lastVersion = UserDefaults.standard.string(forKey: lastVersionKey)
+
+        #if DEBUG
+        let needsBootout = true
+        #else
+        let needsBootout = (lastVersion != currentVersion)
+        #endif
+
+        if needsBootout {
+            let bootout = Process()
+            bootout.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            bootout.arguments = ["bootout", serviceTarget]
+            bootout.standardOutput = FileHandle.nullDevice
+            bootout.standardError = FileHandle.nullDevice
+            try? bootout.run()
+            bootout.waitUntilExit()
+            logger.info("Helper bootout (version \(lastVersion ?? "none", privacy: .public) → \(currentVersion, privacy: .public))")
+        }
 
         let plistContent = """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -173,13 +191,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let bootstrap = Process()
         bootstrap.executableURL = URL(fileURLWithPath: "/bin/launchctl")
         bootstrap.arguments = ["bootstrap", domain, plistPath]
+        bootstrap.standardOutput = FileHandle.nullDevice
+        bootstrap.standardError = FileHandle.nullDevice
         try? bootstrap.run()
         bootstrap.waitUntilExit()
 
+        // bootstrap returns non-zero if the service is already loaded — desired
+        // no-op path in release. Only treat as failure when we expected a fresh load.
         if bootstrap.terminationStatus == 0 {
-            logger.info("Helper agent loaded: \(helperPath)")
+            UserDefaults.standard.set(currentVersion, forKey: lastVersionKey)
+            logger.info("Helper agent loaded: \(helperPath, privacy: .public)")
+        } else if needsBootout {
+            logger.error("Failed to load helper agent (exit \(bootstrap.terminationStatus, privacy: .public))")
         } else {
-            logger.error("Failed to load helper agent (exit \(bootstrap.terminationStatus))")
+            logger.info("Helper already loaded (version \(currentVersion, privacy: .public))")
         }
     }
 
