@@ -6,6 +6,8 @@ xcuserdata/
 DerivedData/
 build/
 *.build/
+*.app/
+*.dmg
 
 # macOS system files
 .DS_Store
