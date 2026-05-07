@@ -202,10 +202,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if bootstrap.terminationStatus == 0 {
             UserDefaults.standard.set(currentVersion, forKey: lastVersionKey)
             logger.info("Helper agent loaded: \(helperPath, privacy: .public)")
-        } else if needsBootout {
-            logger.error("Failed to load helper agent (exit \(bootstrap.terminationStatus, privacy: .public))")
         } else {
-            logger.info("Helper already loaded (version \(currentVersion, privacy: .public))")
+            #if DEBUG
+            // DEBUG always boots out, so a non-zero bootstrap is always a failure.
+            logger.error("Failed to load helper agent (exit \(bootstrap.terminationStatus, privacy: .public))")
+            #else
+            if needsBootout {
+                logger.error("Failed to load helper agent (exit \(bootstrap.terminationStatus, privacy: .public))")
+            } else {
+                logger.info("Helper already loaded (version \(currentVersion, privacy: .public))")
+            }
+            #endif
         }
     }
 
