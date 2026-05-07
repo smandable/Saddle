@@ -101,10 +101,6 @@ struct AppConfig: Codable {
     var useForceUnmount: Bool = false
     var checkForUpdatesAutomatically: Bool = false
     var preserveManualMountState: Bool = false
-    /// Per-drive user intent: true = user wants mounted, false = user wants unmounted,
-    /// absent = no recorded intent. Keyed by persistentId. Only consulted when
-    /// preserveManualMountState is enabled, only updated by Saddle UI actions.
-    var userMountIntent: [String: Bool] = [:]
 
     static let `default` = AppConfig()
 
@@ -127,6 +123,5 @@ struct AppConfig: Codable {
         useForceUnmount = try c.decodeIfPresent(Bool.self, forKey: .useForceUnmount) ?? false
         checkForUpdatesAutomatically = try c.decodeIfPresent(Bool.self, forKey: .checkForUpdatesAutomatically) ?? false
         preserveManualMountState = try c.decodeIfPresent(Bool.self, forKey: .preserveManualMountState) ?? false
-        userMountIntent = try c.decodeIfPresent([String: Bool].self, forKey: .userMountIntent) ?? [:]
     }
 }

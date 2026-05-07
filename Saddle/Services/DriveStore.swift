@@ -22,9 +22,20 @@ final class DriveStore: ObservableObject {
     private var hasCompletedFirstRefresh = false
     private var debounceTask: Task<Void, Never>?
 
-    /// Set after construction by SaddleApp. Used to record per-drive user intent
-    /// for the "Preserve manual mount state" feature.
-    weak var configStore: ConfigStore?
+    /// UserDefaults key for the per-drive user mount intent dict (persistentId -> Bool).
+    /// Stored outside AppConfig so frequent UI-action writes don't trigger
+    /// the @Published config cascade (full disk save + view invalidation).
+    private static let userMountIntentKey = "userMountIntent"
+
+    private func userMountIntent() -> [String: Bool] {
+        (UserDefaults.standard.dictionary(forKey: Self.userMountIntentKey) as? [String: Bool]) ?? [:]
+    }
+
+    private func setUserMountIntent(_ mounted: Bool, for persistentId: String) {
+        var dict = userMountIntent()
+        dict[persistentId] = mounted
+        UserDefaults.standard.set(dict, forKey: Self.userMountIntentKey)
+    }
 
     /// Persistent IDs of drives the user explicitly unmounted this session.
     /// When a drive reappears mounted (e.g. USB reconnect), it will be auto-unmounted.
@@ -267,7 +278,7 @@ final class DriveStore: ObservableObject {
                 : await diskService.unmount(identifier: d.identifier)
             if result.success && !isExcluded {
                 manuallyUnmountedIds.insert(persistentId)
-                configStore?.config.userMountIntent[persistentId] = false
+                setUserMountIntent(false, for: persistentId)
             }
             statusMessage = result.success
                 ? "Unmounted \(d.volumeName)"
@@ -280,7 +291,7 @@ final class DriveStore: ObservableObject {
             reUnmountCooldownUntil.removeValue(forKey: persistentId)
             result = await diskService.mount(identifier: d.identifier)
             if result.success && !isExcluded {
-                configStore?.config.userMountIntent[persistentId] = true
+                setUserMountIntent(true, for: persistentId)
             }
             statusMessage = result.success
                 ? "Mounted \(d.volumeName)"
@@ -319,7 +330,7 @@ final class DriveStore: ObservableObject {
         let freshDrives = await diskService.discoverExternalDrives() ?? []
         for drive in targets {
             if let fresh = freshDrives.first(where: { $0.persistentId == drive.persistentId }), fresh.isMounted {
-                configStore?.config.userMountIntent[drive.persistentId] = true
+                setUserMountIntent(true, for: drive.persistentId)
             }
         }
         statusMessage = messages.isEmpty
@@ -353,7 +364,7 @@ final class DriveStore: ObservableObject {
         for drive in targets {
             if let fresh = freshDrives.first(where: { $0.persistentId == drive.persistentId }), !fresh.isMounted {
                 manuallyUnmountedIds.insert(drive.persistentId)
-                configStore?.config.userMountIntent[drive.persistentId] = false
+                setUserMountIntent(false, for: drive.persistentId)
             }
         }
         let messages = results.map(\.0)
@@ -390,14 +401,11 @@ final class DriveStore: ObservableObject {
             for await msg in taskGroup { collected.append(msg) }
             return collected
         }
-        // Record successful mounts as user intent, skipping excluded drives
+        // Record successful mounts as user intent
         let freshDrives = await diskService.discoverExternalDrives() ?? []
-        let excludedSet = Set(configStore?.config.excludedIdentifiers ?? [])
         for d in targets {
-            if let fresh = freshDrives.first(where: { $0.persistentId == d.persistentId }),
-               fresh.isMounted,
-               !excludedSet.contains(d.persistentId) {
-                configStore?.config.userMountIntent[d.persistentId] = true
+            if let fresh = freshDrives.first(where: { $0.persistentId == d.persistentId }), fresh.isMounted {
+                setUserMountIntent(true, for: d.persistentId)
             }
         }
         statusMessage = messages.isEmpty
@@ -431,13 +439,10 @@ final class DriveStore: ObservableObject {
         }
         // Track successfully unmounted drives
         let freshDrives = await diskService.discoverExternalDrives() ?? []
-        let excludedSet = Set(configStore?.config.excludedIdentifiers ?? [])
         for d in targets {
             if let fresh = freshDrives.first(where: { $0.persistentId == d.persistentId }), !fresh.isMounted {
                 manuallyUnmountedIds.insert(d.persistentId)
-                if !excludedSet.contains(d.persistentId) {
-                    configStore?.config.userMountIntent[d.persistentId] = false
-                }
+                setUserMountIntent(false, for: d.persistentId)
             }
         }
         statusMessage = messages.isEmpty
@@ -452,13 +457,13 @@ final class DriveStore: ObservableObject {
     /// True when this drive should be exempted from a "mount all" auto-sweep
     /// because the user has manually unmounted it and asked to preserve that state.
     private func isExemptFromMountSweep(_ persistentId: String, config: AppConfig) -> Bool {
-        config.preserveManualMountState && config.userMountIntent[persistentId] == false
+        config.preserveManualMountState && userMountIntent()[persistentId] == false
     }
 
     /// True when this drive should be exempted from an "unmount all" auto-sweep
     /// because the user has manually mounted it and asked to preserve that state.
     private func isExemptFromUnmountSweep(_ persistentId: String, config: AppConfig) -> Bool {
-        config.preserveManualMountState && config.userMountIntent[persistentId] == true
+        config.preserveManualMountState && userMountIntent()[persistentId] == true
     }
 
     // MARK: - Launch Actions
