@@ -23,6 +23,7 @@ struct SaddleApp: App {
         let _ = {
             appDelegate.driveStore = driveStore
             appDelegate.configStore = configStore
+            driveStore.configStore = configStore
         }()
 
         // ── Menu Bar ────────────────────────────────────────────────

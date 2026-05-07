@@ -463,6 +463,10 @@ struct GeneralTab: View {
                             if newValue { configStore.config.mountAllOnWake = false }
                         }
                        ))
+
+                Toggle("Preserve manual mount state",
+                       isOn: $configStore.config.preserveManualMountState)
+                    .help("When enabled, drives you've manually mounted or unmounted in Saddle are skipped by \"Mount all\" and \"Unmount all\" actions at launch and on wake.")
             } header: {
                 Text("Sleep / Wake")
             }
