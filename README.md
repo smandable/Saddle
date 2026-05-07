@@ -4,7 +4,7 @@ A native SwiftUI menu bar app for managing external drives on macOS. Mount, unmo
 
 ## Download
 
-**[Download Saddle 1.2.1](https://github.com/smandable/Saddle/releases/latest)**
+**[Download Saddle 1.3](https://github.com/smandable/Saddle/releases/latest)**
 
 Open the `.dmg`, drag Saddle to Applications, and launch. On first launch, macOS will ask you to allow the background helper in System Settings > Login Items.
 
@@ -34,6 +34,7 @@ brew tap smandable/tap && brew install --cask saddle
 - **Click to mount/unmount** individual drives
 - **Drive groups** — organize drives and batch mount/unmount
 - **Launch actions** — auto-mount or auto-unmount groups on app startup
+- **Preserve manual mount state** — opt-in toggle so drives you've manually mounted/unmounted in Saddle are skipped by the bulk "Mount all" / "Unmount all" actions at launch and on wake
 - **Exclude drives** — hide drives you don't want managed
 - **Friendly aliases** — rename drives for clarity
 - **Login item** — start at login via macOS ServiceManagement (no LaunchAgent needed)
